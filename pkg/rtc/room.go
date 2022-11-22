@@ -12,8 +12,66 @@ import (
 
 func NewRoom() (x *Room) {
 	x = &Room{
+		Users:    map[int64]*User{},
 		upgrader: websocket.FastHTTPUpgrader{},
 	}
+
+	m := webrtc.MediaEngine{}
+
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/H264", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
+		PayloadType:        96,
+	}, webrtc.RTPCodecTypeVideo); err != nil {
+		log.Println("reg videoo", err)
+		return
+	}
+	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "audio/opus", ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil},
+		PayloadType:        111,
+	}, webrtc.RTPCodecTypeAudio); err != nil {
+		log.Println("reg audio", err)
+		return
+	}
+	/*
+		settingEngine := webrtc.SettingEngine{}
+
+		// Enable support only for TCP ICE candidates.
+		settingEngine.SetNetworkTypes([]webrtc.NetworkType{
+			webrtc.NetworkTypeTCP4,
+			webrtc.NetworkTypeUDP4,
+			//webrtc.NetworkTypeTCP6,
+		})
+
+		tcpListener, err := net.ListenTCP("tcp", &net.TCPAddr{
+			IP:   net.IP{0, 0, 0, 0},
+			Port: MediaPort,
+		})
+
+		if err != nil {
+			log.Println("listenTCP()", err)
+			return
+		}
+
+		tcpMux := webrtc.NewICETCPMux(nil, tcpListener, 8)
+
+		udpListener, err := net.ListenUDP("udp", &net.UDPAddr{
+			IP:   net.IP{0, 0, 0, 0},
+			Port: MediaPort,
+		})
+		if err != nil {
+			log.Println("listenUDP()", err)
+			return
+		}
+
+		udpMux := webrtc.NewICEUDPMux(nil, udpListener)
+
+		settingEngine.SetICETCPMux(tcpMux)
+		settingEngine.SetICEUDPMux(udpMux)
+	*/
+	x.api = webrtc.NewAPI(
+		webrtc.WithMediaEngine(&m),
+		//		webrtc.WithSettingEngine(settingEngine),
+	)
 	return
 }
 

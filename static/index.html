@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <script>
+        // get ID from params and use it to setup WebSocket
+        const urlParams = new URLSearchParams(window.location.search);
+        const id = urlParams.get('id');
+        var ws = new WebSocket("wss://sfu.flaxatar.com/ws");
+        let pc = new RTCPeerConnection();
+
+        ws.onopen = pub();
+        // Process 
+        ws.onmessage = function(event) {
+            var data = event.data;
+            var pl = JSON.parse(data);
+            console.log(pl);
+            switch (pl.action) {
+                case "pub":
+                    pub(pl.data)
+                    return
+                case "sub":
+                    sub(pl.id, pl.data)
+                    return
+                default:
+                    console.log("unexpected", pl.action)
+            }
+        }
+
+        function pub(ans) {
+            console.log(ans);
+            if (ans != null) {
+                pc.setRemoteDescription(ans)
+                return
+            }
+
+            // start publishing
+            navigator.mediaDevices.getUserMedia({
+                    video: true,
+                    audio: true
+                })
+                .then(stream => {
+                    console.log(stream)
+                    let stream_settings = stream.getVideoTracks()[0].getSettings();
+                    let stream_width = stream_settings.width;
+                    let stream_height = stream_settings.height;
+
+                    console.log('Width: ' + stream_width);
+                    console.log('Height: ' + stream_height);
+
+                    document.getElementById('video1').srcObject = stream
+                    stream.getTracks().forEach(track => pc.addTrack(track, stream));
+
+                    pc.createOffer()
+                        .then(offer => {
+                            pc.setLocalDescription(offer)
+                            let js = {
+                                "action": "pub",
+                                "data": offer
+                            }
+                            ws.send(JSON.stringify(js))
+
+                            //alert("OFFER: " + offer)
+                            return
+                        })
+                        .catch(alert)
+                }).catch(alert)
+        }
+    </script>
+</head>
+
+<body>
+    <div id="media ">
+</body>
+
+</html>

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"os"
 	"sync"
 	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/fasthttp/websocket"
+	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -20,6 +20,7 @@ const (
 
 func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64)) (u *User) {
 	u = &User{
+		Id:           id,
 		inviteOthers: inviteOthers, // to invite others to subscribe
 		subscribeTo:  subscribeTo,
 		stop:         stop,
@@ -81,12 +82,12 @@ func (u *User) Handler(conn *websocket.Conn) {
 	go u.wrHandler()
 
 	for {
-		mt, msg, err := u.conn.ReadMessage()
+		_, msg, err := u.conn.ReadMessage()
 		if err != nil {
 			u.Println("ws read", err)
 			return
 		}
-		u.Println("mt=", mt, "msg=", string(msg))
+		//u.Println("mt=", mt, "msg=", string(msg))
 
 		if err = u.process(msg); err != nil {
 			u.Println("ws data", err)
@@ -108,16 +109,39 @@ func (u *User) wrHandler() {
 }
 
 func (u *User) process(p []byte) (err error) {
-	pl := &defs.WsPload{}
-	if err = json.Unmarshal(p, pl); err != nil {
-		u.Println("ws unmarshal", err)
+	var r map[string]interface{}
+
+	if err = json.Unmarshal(p, &r); err != nil {
+		log.Println("process, unmarshal", err)
 		return
 	}
-	switch pl.Action {
+	if r["action"] == nil {
+		err = errors.New("json incomplete, action")
+		return
+	}
+	action := r["action"].(string)
+
+	if r["data"] == nil {
+		err = errors.New("json incomplete, data " + action)
+		return
+	}
+	data, err := json.Marshal(r["data"])
+	if err != nil {
+		log.Println("data marshal", err)
+		return
+	}
+	switch action {
 	case defs.ActPublish:
-		go u.negotiatePublisher(pl.Data)
+		go u.negotiatePublisher(data)
 	case defs.ActSubscribe:
-		go u.negotiateSubscriber(pl.Id, pl.Data)
+		if r["id"] == nil {
+			err = errors.New("json incomplete, id " + action)
+			return
+		}
+		id := int64(r["id"].(float64))
+
+		u.Println(id)
+		go u.negotiateSubscriber(id, data)
 	default:
 		err = errors.New(fmt.Sprint("unexpected ws cmd", string(p)))
 	}
@@ -125,7 +149,7 @@ func (u *User) process(p []byte) (err error) {
 }
 
 func (u *User) Println(i ...interface{}) {
-	log.Println("USER", i)
+	log.Println("USER", u.Id, i)
 }
 
 func (u *User) negotiatePublisher(data []byte) {
@@ -135,6 +159,7 @@ func (u *User) negotiatePublisher(data []byte) {
 		u.Println("pub offer Unmarshal()", err)
 		return
 	}
+	//u.Println("pub offer", offer.SDP)
 
 	r := &replicator{
 		welcome: func() {
@@ -162,7 +187,22 @@ func (u *User) negotiatePublisher(data []byte) {
 		return
 	}
 
-	pc.OnTrack(r.Replicate)
+	pc.OnTrack(func(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		go func() {
+			ticker := time.NewTicker(time.Second * 2)
+			defer ticker.Stop()
+
+			for {
+				<-ticker.C
+				if err := pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(t.SSRC())}}); err != nil {
+					u.Println("failed to write rtcp", t.Kind(), err)
+					return
+				}
+			}
+		}()
+		r.Replicate(t, receiver)
+	})
+
 	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
 		u.Println("pub ICE Connection State has changed:", connectionState.String())
 		if connectionState == webrtc.ICEConnectionStateFailed ||
@@ -200,6 +240,7 @@ func (u *User) negotiatePublisher(data []byte) {
 	<-gatherComplete
 
 	local := *pc.LocalDescription()
+	//u.Println("local", local.SDP)
 	response, err := json.Marshal(local)
 	if err != nil {
 		u.Println("pub Marshal(local)", err)
@@ -287,29 +328,25 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 		}
 	}()
 	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		fmt.Printf("Connection State has changed %s \n", connectionState.String())
+		u.Println("Connection State has changed", connectionState.String())
 	})
 	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		fmt.Printf("Peer Connection State has changed: %s\n", s.String())
+		u.Println("Peer Connection State has changed:", s.String())
 
 		if s == webrtc.PeerConnectionStateFailed {
-			// Wait until PeerConnection has had no network activity for 30 seconds or another failure. It may be reconnected using an ICE Restart.
-			// Use webrtc.PeerConnectionStateDisconnected if you are interested in detecting faster timeout.
-			// Note that the PeerConnection may come back from PeerConnectionStateDisconnected.
-			fmt.Println("Peer Connection has gone to failed exiting")
-			os.Exit(0)
+			u.Println("sub failed")
 		}
 	})
 
 	// Set the remote SessionDescription
 	if err = pc.SetRemoteDescription(offer); err != nil {
-		panic(err)
+		u.Println("sub SetRemoteDescription", err)
 	}
 
 	// Create answer
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
-		panic(err)
+		u.Println("sub CreateAnswer", err)
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
@@ -317,7 +354,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 
 	// Sets the LocalDescription, and starts our UDP listeners
 	if err = pc.SetLocalDescription(answer); err != nil {
-		panic(err)
+		u.Println("sub SetLocalDescription", err)
 	}
 
 	// Block until ICE Gathering is complete, disabling trickle ICE
@@ -326,7 +363,6 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	<-gatherComplete
 
 	local := *pc.LocalDescription()
-	// fmt.Println("\n\nLOCAL:", local, "\n\n")
 	response, err := json.Marshal(local)
 	if err != nil {
 		log.Println("Marshal(local)", err)
@@ -335,6 +371,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 
 	wpl := &defs.WsPload{
 		Action: defs.ActSubscribe,
+		Id:     srcId,
 		Data:   response,
 	}
 	b, err := json.Marshal(wpl)

@@ -16,7 +16,9 @@ type replicator struct {
 }
 
 func (r *replicator) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-	tr := &trackReplicator{}
+	tr := &trackReplicator{
+		tracks: make(map[int64]*webrtc.TrackLocalStaticRTP),
+	}
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
