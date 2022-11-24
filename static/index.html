@@ -2,38 +2,178 @@
 <html>
 
 <head>
+</head>
+
+<body>
+    <div id="pub"> </div>
+    <div id="sub"> </div>
     <script>
         // get ID from params and use it to setup WebSocket
         const urlParams = new URLSearchParams(window.location.search);
-        const id = urlParams.get('id');
-        var ws = new WebSocket("wss://sfu.flaxatar.com/ws");
-        let pc = new RTCPeerConnection();
 
-        ws.onopen = pub();
-        // Process 
-        ws.onmessage = function(event) {
-            var data = event.data;
-            var pl = JSON.parse(data);
-            console.log(pl);
-            switch (pl.action) {
-                case "pub":
-                    pub(pl.data)
-                    return
-                case "sub":
-                    sub(pl.id, pl.data)
-                    return
-                default:
-                    console.log("unexpected", pl.action)
+        const subParent = document.getElementById("sub");
+        const pubParent = document.getElementById("pub");
+
+
+        const id = urlParams.get('id');
+        var ws = startws();
+        let pc = new RTCPeerConnection();
+        let userid = 0;
+
+        let pcsub = new Map();
+        let ae = new Map();
+        let ve = new Map();
+
+        function startws() {
+            var loc = window.location,
+                uri;
+            if (loc.protocol === "https:") {
+                uri = "wss:";
+            } else {
+                uri = "ws:";
             }
+            uri += "//" + loc.host + "/ws";
+            console.log(uri)
+
+            ws = new WebSocket(uri); //"ws://localhost:8080/ws");
+            ws.onopen = function(event) {
+
+                // remove own loopback
+                if (ae.has(userid)) {
+                    subParent.removeChild(ae.get(userid));
+                    ae.delete(userid);
+                }
+                if (ve.has(userid)) {
+                    subParent.removeChild(ve.get(userid));
+                    ve.delete(userid);
+                }
+
+                // remove own publisher
+                // pubParent.innerHTML = '';
+
+                pcsub = new Map();
+                userid = 0;
+
+                pub();
+            }
+
+            ws.onclose = function(e) {
+                console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
+                setTimeout(function() {
+                    startws();
+                }, 1000);
+            };
+
+            ws.onmessage = function(event) {
+                console.log("onmessage()" + event);
+                var data = event.data;
+                var pl = JSON.parse(data);
+                console.log(pl);
+                switch (pl.action) {
+                    case "pub":
+                        pub(pl.id, pl.data)
+                        return
+                    case "sub":
+                        sub(pl.id, pl.data)
+                        return
+                    case "inv":
+                        inv(pl.id)
+                        return
+                    default:
+                        console.log("unexpected", pl.action)
+                }
+            }
+            return ws;
         }
 
-        function pub(ans) {
-            console.log(ans);
+        function sub(id, ans) {
+            if (pcsub.has(id)) {
+                let d = atob(ans);
+                let pl = JSON.parse(d);
+                console.log(pl);
+                let newpc = pcsub.get(id);
+                newpc.setRemoteDescription(pl)
+                return
+            }
+            console.log("no such id " + id);
+        }
+
+        function inv(id) {
+            if (pcsub.has(id)) {
+                console.log("already invited " + id);
+                return
+            }
+            let newpc = new RTCPeerConnection();
+            newpc.ontrack = function(event) {
+                let kind = event.track.kind;
+                var el;
+
+                if (kind == "audio") {
+                    if (ae.has(id)) {
+                        console.log("replacing audio " + id);
+                        el = ae.get(id);
+                    } else {
+                        console.log("new audio " + id);
+                        el = document.createElement(kind);
+                        ae.set(id, el);
+                        subParent.appendChild(el);
+                    }
+
+                    if (userid == id) el.muted = true;
+
+                } else {
+                    if (ve.has(id)) {
+                        console.log("replacing video " + id);
+                        el = ve.get(id);
+                    } else {
+                        console.log("new video " + id);
+                        el = document.createElement(kind);
+                        ve.set(id, el);
+                        subParent.appendChild(el);
+                    }
+                }
+
+                el.srcObject = event.streams[0]
+                el.autoplay = true
+            }
+
+            newpc.oniceconnectionstatechange = e => console.log(newpc.iceConnectionState)
+
+            // Offer to receive 1 audio, and 1 video track
+            newpc.addTransceiver('video', {
+                direction: 'sendrecv'
+            })
+            newpc.addTransceiver('audio', {
+                direction: 'sendrecv'
+            })
+
+            newpc.createOffer()
+                .then(offer => {
+                    newpc.setLocalDescription(offer);
+                    pcsub.set(id, newpc);
+                    let js = {
+                        "action": "sub",
+                        "id": id,
+                        "data": offer,
+                    }
+                    ws.send(JSON.stringify(js))
+                })
+                .catch(alert)
+        }
+
+
+        function pub(uid, ans) {
+            console.log("pub()" + ans);
             if (ans != null) {
-                pc.setRemoteDescription(ans)
+                userid = uid;
+                let d = atob(ans);
+                let pl = JSON.parse(d);
+                console.log(pl);
+                pc.setRemoteDescription(pl)
                 return
             }
 
+            console.log("start publishing");
             // start publishing
             navigator.mediaDevices.getUserMedia({
                     video: true,
@@ -48,8 +188,15 @@
                     console.log('Width: ' + stream_width);
                     console.log('Height: ' + stream_height);
 
-                    document.getElementById('video1').srcObject = stream
+                    const video = document.createElement('video');
+                    pubParent.replaceChildren(video);
+
+                    video.srcObject = stream
                     stream.getTracks().forEach(track => pc.addTrack(track, stream));
+                    video.play();
+                    video.muted = true;
+
+                    //console.log(stream);
 
                     pc.createOffer()
                         .then(offer => {
@@ -67,10 +214,7 @@
                 }).catch(alert)
         }
     </script>
-</head>
 
-<body>
-    <div id="media ">
 </body>
 
 </html>
