@@ -261,6 +261,7 @@ func (u *User) negotiatePublisher(data []byte) {
 	wpl := &defs.WsPload{
 		Action: defs.ActPublish,
 		Data:   response,
+		Id:     u.Id,
 	}
 	b, err := json.Marshal(wpl)
 	if err != nil {

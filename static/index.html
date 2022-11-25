@@ -20,7 +20,6 @@
         let ve = new Map();
 
         function startws() {
-            console.log("startws()");
             var loc = window.location,
                 uri;
 
@@ -30,7 +29,6 @@
                 uri = "ws:";
             }
             uri += "//" + loc.host + "/ws";
-            console.log(uri)
 
             ws = new WebSocket(uri);
             ws.onopen = function(event) {
@@ -55,17 +53,15 @@
             }
 
             ws.onclose = function(e) {
-                console.log('Socket is closed. Reconnect will be attempted in 1 second.', e.reason);
                 setTimeout(function() {
                     startws();
                 }, 1000);
             };
 
             ws.onmessage = function(event) {
-                console.log("onmessage()" + event);
                 var data = event.data;
                 var pl = JSON.parse(data);
-                console.log(pl);
+
                 switch (pl.action) {
                     case "pub":
                         pub(pl.id, pl.data)
@@ -87,7 +83,6 @@
             if (pcsub.has(id)) {
                 let d = atob(ans);
                 let pl = JSON.parse(d);
-                console.log(pl);
                 let newpc = pcsub.get(id);
                 newpc.setRemoteDescription(pl)
                 return
@@ -107,23 +102,26 @@
 
                 if (kind == "audio") {
                     if (ae.has(id)) {
-                        console.log("replacing audio " + id);
+                        //console.log("replacing audio " + id);
                         el = ae.get(id);
                     } else {
-                        console.log("new audio " + id);
+                        //console.log("new audio " + id);
                         el = document.createElement(kind);
                         ae.set(id, el);
                         subParent.appendChild(el);
                     }
 
-                    if (userid == id) el.muted = true;
+                    if (userid == id) {
+                        console.log("muting own audio, userid=", id);
+                        el.muted = true;
+                    }
 
                 } else {
                     if (ve.has(id)) {
-                        console.log("replacing video " + id);
+                        //console.log("replacing video " + id);
                         el = ve.get(id);
                     } else {
-                        console.log("new video " + id);
+                        //console.log("new video " + id);
                         el = document.createElement(kind);
                         ve.set(id, el);
                         subParent.appendChild(el);
@@ -134,7 +132,7 @@
                 el.autoplay = true
             }
 
-            newpc.oniceconnectionstatechange = e => console.log(newpc.iceConnectionState)
+            //newpc.oniceconnectionstatechange = e => console.log(newpc.iceConnectionState)
 
             // Offer to receive 1 audio, and 1 video track
             newpc.addTransceiver('video', {
@@ -160,30 +158,25 @@
 
 
         function pub(uid, ans) {
-            console.log("pub()" + ans);
+            //console.log("pub()" + ans);
             if (ans != null) {
                 userid = uid;
+                console.log("userid=" + userid);
                 let d = atob(ans);
                 let pl = JSON.parse(d);
-                console.log(pl);
                 pc.setRemoteDescription(pl)
                 return
             }
 
-            console.log("start publishing");
             // start publishing
             navigator.mediaDevices.getUserMedia({
                     video: true,
                     audio: true
                 })
                 .then(stream => {
-                    console.log(stream)
                     let stream_settings = stream.getVideoTracks()[0].getSettings();
                     let stream_width = stream_settings.width;
                     let stream_height = stream_settings.height;
-
-                    console.log('Width: ' + stream_width);
-                    console.log('Height: ' + stream_height);
 
                     const video = document.createElement('video');
                     pubParent.replaceChildren(video);
@@ -192,8 +185,6 @@
                     stream.getTracks().forEach(track => pc.addTrack(track, stream));
                     video.play();
                     video.muted = true;
-
-                    //console.log(stream);
 
                     pc.createOffer()
                         .then(offer => {

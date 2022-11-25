@@ -14,22 +14,8 @@ const insecure = false
 
 func main() {
 	room := rtc.NewRoom()
-	if insecure {
-		sh := fasthttp.FSHandler("static.http", 0)
-		srv := fasthttp.Server{
-			Handler: func(r *fasthttp.RequestCtx) {
-				switch string(r.Path()) {
-				case "/ws":
-					room.Handler(r)
-				default:
-					sh(r)
-				}
-			},
-		}
-		panic(srv.ListenAndServe(":8080"))
-	}
-
 	sh := fasthttp.FSHandler("static", 0)
+
 	srv := fasthttp.Server{
 		Handler: func(r *fasthttp.RequestCtx) {
 			switch string(r.Path()) {
@@ -41,9 +27,13 @@ func main() {
 		},
 	}
 
+	if insecure {
+		panic(srv.ListenAndServe(":8080"))
+	}
+
 	m := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("https://sfu.flexatar.com","sfu.flexatar.com"),
+		HostPolicy: autocert.HostWhitelist("https://sfu.flexatar.com", "sfu.flexatar.com"),
 		Cache:      autocert.DirCache("/tmp/certs"),
 	}
 
