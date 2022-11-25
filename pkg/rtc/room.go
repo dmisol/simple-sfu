@@ -125,4 +125,10 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 	defer x.mu.Unlock()
 	x.Users[uid] = user
 	log.Println("user added", uid)
+
+	for i, u := range x.Users {
+		if (i != uid) && u.Publisher() {
+			go user.Invite(i)
+		}
+	}
 }

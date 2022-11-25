@@ -10,10 +10,25 @@ import (
 	"golang.org/x/crypto/acme/autocert"
 )
 
-const insecure = true
+const insecure = false
 
 func main() {
 	room := rtc.NewRoom()
+	if insecure {
+		sh := fasthttp.FSHandler("static.http", 0)
+		srv := fasthttp.Server{
+			Handler: func(r *fasthttp.RequestCtx) {
+				switch string(r.Path()) {
+				case "/ws":
+					room.Handler(r)
+				default:
+					sh(r)
+				}
+			},
+		}
+		panic(srv.ListenAndServe(":8080"))
+	}
+
 	sh := fasthttp.FSHandler("static", 0)
 	srv := fasthttp.Server{
 		Handler: func(r *fasthttp.RequestCtx) {
@@ -26,13 +41,9 @@ func main() {
 		},
 	}
 
-	if insecure {
-		panic(srv.ListenAndServe(":8080"))
-	}
-
 	m := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("https://sfu.flexatel.com"),
+		HostPolicy: autocert.HostWhitelist("https://sfu.flexatar.com","sfu.flexatar.com"),
 		Cache:      autocert.DirCache("/tmp/certs"),
 	}
 
@@ -44,7 +55,7 @@ func main() {
 	}
 
 	// Let's Encrypt tls-alpn-01 only works on port 443.
-	ln, err := net.Listen("tcp4", "0.0.0.0:8443") /* #nosec G102 */
+	ln, err := net.Listen("tcp4", "0.0.0.0:443") /* #nosec G102 */
 	if err != nil {
 		panic(err)
 	}

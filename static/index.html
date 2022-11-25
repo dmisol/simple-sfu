@@ -8,14 +8,9 @@
     <div id="pub"> </div>
     <div id="sub"> </div>
     <script>
-        // get ID from params and use it to setup WebSocket
-        const urlParams = new URLSearchParams(window.location.search);
-
         const subParent = document.getElementById("sub");
         const pubParent = document.getElementById("pub");
 
-
-        const id = urlParams.get('id');
         var ws = startws();
         let pc = new RTCPeerConnection();
         let userid = 0;
@@ -25,8 +20,10 @@
         let ve = new Map();
 
         function startws() {
+            console.log("startws()");
             var loc = window.location,
                 uri;
+
             if (loc.protocol === "https:") {
                 uri = "wss:";
             } else {
@@ -35,7 +32,7 @@
             uri += "//" + loc.host + "/ws";
             console.log(uri)
 
-            ws = new WebSocket(uri); //"ws://localhost:8080/ws");
+            ws = new WebSocket(uri);
             ws.onopen = function(event) {
 
                 // remove own loopback
@@ -158,7 +155,7 @@
                     }
                     ws.send(JSON.stringify(js))
                 })
-                .catch(alert)
+
         }
 
 
@@ -210,8 +207,8 @@
                             //alert("OFFER: " + offer)
                             return
                         })
-                        .catch(alert)
-                }).catch(alert)
+                        .catch(e => console.log(e));
+                }).catch(e => console.log(e));
         }
     </script>
 

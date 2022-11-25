@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
@@ -24,7 +25,7 @@ func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo fu
 		inviteOthers: inviteOthers, // to invite others to subscribe
 		subscribeTo:  subscribeTo,
 		stop:         stop,
-		wsChan:       make(chan []byte), // to invite the given user to subscribe publisher[id]
+		wsChan:       make(chan []byte, 5), // to invite the given user to subscribe publisher[id]
 		api:          api,
 	}
 
@@ -44,9 +45,14 @@ type User struct {
 	wsChan chan []byte
 	rep    *replicator
 
+	publisher int32
+
 	pc []*webrtc.PeerConnection
 }
 
+func (u *User) Publisher() bool {
+	return (atomic.LoadInt32(&u.publisher) > 0)
+}
 func (u *User) Invite(id int64) {
 	pl := &defs.WsPload{
 		Action: defs.ActInvite,
@@ -139,6 +145,8 @@ func (u *User) process(p []byte) (err error) {
 			return
 		}
 		id := int64(r["id"].(float64))
+
+		u.Println(id)
 		go u.negotiateSubscriber(id, data)
 	default:
 		err = errors.New(fmt.Sprint("unexpected ws cmd", string(p)))
@@ -186,6 +194,10 @@ func (u *User) negotiatePublisher(data []byte) {
 	}
 
 	pc.OnTrack(func(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
+		if t.Kind() == webrtc.RTPCodecTypeAudio { // we need audio anyway
+			atomic.AddInt32(&u.publisher, 1)
+		}
+
 		go func() {
 			ticker := time.NewTicker(time.Second * 2)
 			defer ticker.Stop()
@@ -249,7 +261,6 @@ func (u *User) negotiatePublisher(data []byte) {
 	wpl := &defs.WsPload{
 		Action: defs.ActPublish,
 		Data:   response,
-		Id:     u.Id,
 	}
 	b, err := json.Marshal(wpl)
 	if err != nil {
@@ -258,6 +269,8 @@ func (u *User) negotiatePublisher(data []byte) {
 		return
 	}
 	u.wsChan <- b
+
+	u.Println("pub negotiation done")
 
 	u.mu.Lock()
 	defer u.mu.Unlock()
@@ -270,27 +283,27 @@ func (u *User) negotiatePublisher(data []byte) {
 func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	var offer webrtc.SessionDescription
 	if err := json.Unmarshal(data, &offer); err != nil {
-		u.Println("sub offer", srcId, err)
+		u.Println("sub offer Unmarshal()", err)
 		u.conn.Close()
 		return
 	}
 
 	pc, err := u.api.NewPeerConnection(webrtc.Configuration{SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback})
 	if err != nil {
-		u.Println("sub peerconn", srcId, err)
+		u.Println("sub peerconn", err)
 		u.conn.Close()
 		return
 	}
 
 	videoTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeH264}, fmt.Sprintf("video%d", srcId), fmt.Sprint(srcId))
 	if err != nil {
-		u.Println("sub video track", srcId, err)
+		u.Println("sub video track", err)
 		u.conn.Close()
 		return
 	}
 	rtpSenderV, err := pc.AddTrack(videoTrack)
 	if err != nil {
-		u.Println("sub video track add", srcId, err)
+		u.Println("sub video track add", err)
 		u.conn.Close()
 		return
 	}
@@ -298,7 +311,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 		rtcpBuf := make([]byte, 1500)
 		for {
 			if _, _, rtcpErr := rtpSenderV.Read(rtcpBuf); rtcpErr != nil {
-				u.Println("sub rtcp video rd", srcId, err)
+				u.Println("sub rtcp video rd", err)
 				return
 			}
 		}
@@ -307,12 +320,12 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	// Create a audio track
 	audioTrack, err := webrtc.NewTrackLocalStaticRTP(webrtc.RTPCodecCapability{MimeType: webrtc.MimeTypeOpus}, "audio", "pion")
 	if err != nil {
-		u.Println("sub audio track", srcId, err)
+		u.Println("sub audio track", err)
 	}
 
 	rtpSenderA, err := pc.AddTrack(audioTrack)
 	if err != nil {
-		u.Println("sub audio track add", srcId, err)
+		u.Println("sub audio track add", err)
 		u.conn.Close()
 		return
 	}
@@ -324,23 +337,26 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 			}
 		}
 	}()
-
 	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
-		u.Println("sub ICE", srcId, connectionState.String())
+		u.Println("Connection State has changed", connectionState.String())
 	})
 	pc.OnConnectionStateChange(func(s webrtc.PeerConnectionState) {
-		u.Println("sub pc", srcId, s.String())
+		u.Println("Peer Connection State has changed:", s.String())
+
+		if s == webrtc.PeerConnectionStateFailed {
+			u.Println("sub failed")
+		}
 	})
 
 	// Set the remote SessionDescription
 	if err = pc.SetRemoteDescription(offer); err != nil {
-		u.Println("sub SetRemoteDescription", srcId, err)
+		u.Println("sub SetRemoteDescription", err)
 	}
 
 	// Create answer
 	answer, err := pc.CreateAnswer(nil)
 	if err != nil {
-		u.Println("sub CreateAnswer", srcId, err)
+		u.Println("sub CreateAnswer", err)
 	}
 
 	// Create channel that is blocked until ICE Gathering is complete
@@ -348,7 +364,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 
 	// Sets the LocalDescription, and starts our UDP listeners
 	if err = pc.SetLocalDescription(answer); err != nil {
-		u.Println("sub SetLocalDescription", srcId, err)
+		u.Println("sub SetLocalDescription", err)
 	}
 
 	// Block until ICE Gathering is complete, disabling trickle ICE
@@ -359,7 +375,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	local := *pc.LocalDescription()
 	response, err := json.Marshal(local)
 	if err != nil {
-		log.Println("sub Marshal(local)", srcId, err)
+		log.Println("Marshal(local)", err)
 		return
 	}
 
@@ -370,11 +386,13 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	}
 	b, err := json.Marshal(wpl)
 	if err != nil {
-		u.Println("sub marshal resp", srcId, err)
+		u.Println("pub marshal resp", err)
 		u.conn.Close()
 		return
 	}
 	u.wsChan <- b
+
+	u.Println("pub negotiation done")
 
 	u.mu.Lock()
 	defer u.mu.Unlock()
