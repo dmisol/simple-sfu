@@ -8,7 +8,7 @@ import (
 
 type Conf struct {
 	Port  string   `yaml:"port"`
-	Hosts []string `yaml:"hosts,omtempty"`
+	Hosts []string `yaml:"hosts,omitempty"`
 }
 
 func ReadConf(name string) (c *Conf, err error) {
