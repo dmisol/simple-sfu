@@ -5,8 +5,9 @@
 </head>
 
 <body>
-    <div id="pub"> </div>
     <div id="sub"> </div>
+    <div id="pub">
+        <p>own video, as captured and as seen by others </div>
     <script>
         const subParent = document.getElementById("sub");
         const pubParent = document.getElementById("pub");
@@ -35,11 +36,11 @@
 
                 // remove own loopback
                 if (ae.has(userid)) {
-                    subParent.removeChild(ae.get(userid));
+                    pubParent.removeChild(ae.get(userid));
                     ae.delete(userid);
                 }
                 if (ve.has(userid)) {
-                    subParent.removeChild(ve.get(userid));
+                    pubParent.removeChild(ve.get(userid));
                     ve.delete(userid);
                 }
 
@@ -72,11 +73,28 @@
                     case "inv":
                         inv(pl.id)
                         return
+                    case "del":
+                        del(pl.id)
+                        return
                     default:
                         console.log("unexpected", pl.action)
                 }
             }
             return ws;
+        }
+
+        function del(id) {
+            if (pcsub.has(id)) {
+                pcsub.delete(id);
+                if (id == userid) {
+                    pubParent.removeChild(ae.get(id));
+                    pubParent.removeChild(ve.get(id));
+                } else {
+                    subParent.removeChild(ae.get(id));
+                    subParent.removeChild(ve.get(id));
+                }
+                return
+            }
         }
 
         function sub(id, ans) {
@@ -95,6 +113,9 @@
                 console.log("already invited " + id);
                 return
             }
+            let parent = subParent;
+            if (id == userid) parent = pubParent;
+
             let newpc = new RTCPeerConnection();
             newpc.ontrack = function(event) {
                 let kind = event.track.kind;
@@ -108,7 +129,7 @@
                         //console.log("new audio " + id);
                         el = document.createElement(kind);
                         ae.set(id, el);
-                        subParent.appendChild(el);
+                        parent.appendChild(el);
                     }
 
                     if (userid == id) {
@@ -124,7 +145,7 @@
                         //console.log("new video " + id);
                         el = document.createElement(kind);
                         ve.set(id, el);
-                        subParent.appendChild(el);
+                        parent.appendChild(el);
                     }
                 }
 
