@@ -2,17 +2,23 @@ package main
 
 import (
 	"crypto/tls"
+	"log"
 	"net"
 
+	"github.com/dmisol/simple-sfu/pkg/defs"
 	rtc "github.com/dmisol/simple-sfu/pkg/rtc"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
 )
 
-const insecure = false
-
 func main() {
+	c, err := defs.ReadConf("conf.yaml")
+	if err != nil {
+		log.Println("conf", err)
+		return
+	}
+
 	room := rtc.NewRoom()
 	sh := fasthttp.FSHandler("static", 0)
 
@@ -27,13 +33,13 @@ func main() {
 		},
 	}
 
-	if insecure {
-		panic(srv.ListenAndServe(":8080"))
+	if len(c.Hosts) == 0 {
+		panic(srv.ListenAndServe(net.JoinHostPort("", c.Port)))
 	}
 
 	m := &autocert.Manager{
 		Prompt:     autocert.AcceptTOS,
-		HostPolicy: autocert.HostWhitelist("https://sfu.flexatar.com", "sfu.flexatar.com"),
+		HostPolicy: autocert.HostWhitelist(c.Hosts...),
 		Cache:      autocert.DirCache("/tmp/certs"),
 	}
 

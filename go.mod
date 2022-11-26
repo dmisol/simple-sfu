@@ -4,9 +4,11 @@ go 1.17
 
 require (
 	github.com/fasthttp/websocket v1.5.0
+	github.com/pion/rtcp v1.2.10
 	github.com/pion/webrtc/v3 v3.1.47
 	github.com/valyala/fasthttp v1.33.0
 	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
+	gopkg.in/yaml.v3 v3.0.0-20200313102051-9f266ea9e77c
 )
 
 require (
@@ -20,7 +22,6 @@ require (
 	github.com/pion/logging v0.2.2 // indirect
 	github.com/pion/mdns v0.0.5 // indirect
 	github.com/pion/randutil v0.1.0 // indirect
-	github.com/pion/rtcp v1.2.10 // indirect
 	github.com/pion/rtp v1.7.13 // indirect
 	github.com/pion/sctp v1.8.2 // indirect
 	github.com/pion/sdp/v3 v3.0.6 // indirect
