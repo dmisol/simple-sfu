@@ -12,6 +12,7 @@ ADD static /static
 VOLUME /tmp
 
 COPY main ./main
+COPY conf.yaml ./conf.yaml
 COPY static ./static
 
 ENTRYPOINT ["/bin/sh", "-c", "./main >> /tmp/sfu.txt 2>&1"]
