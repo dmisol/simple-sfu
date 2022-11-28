@@ -109,6 +109,11 @@ func (x *Room) stop(uid int64) {
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
+	for i, u := range x.Users {
+		if i != uid {
+			u.Del(uid)
+		}
+	}
 	delete(x.Users, uid)
 }
 

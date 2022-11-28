@@ -12,6 +12,9 @@
         const subParent = document.getElementById("sub");
         const pubParent = document.getElementById("pub");
 
+        const WIDTH = 640;
+        const HEIGHT = 320;
+
         var ws = startws();
         let pc = new RTCPeerConnection();
         let userid = 0;
@@ -144,6 +147,10 @@
                     } else {
                         //console.log("new video " + id);
                         el = document.createElement(kind);
+
+                        el.height = HEIGHT;
+                        el.width = WIDTH;
+
                         ve.set(id, el);
                         parent.appendChild(el);
                     }
@@ -201,6 +208,9 @@
 
                     const video = document.createElement('video');
                     pubParent.replaceChildren(video);
+
+                    video.height = HEIGHT;
+                    video.width = WIDTH;
 
                     video.srcObject = stream
                     stream.getTracks().forEach(track => pc.addTrack(track, stream));

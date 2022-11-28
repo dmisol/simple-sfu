@@ -60,7 +60,7 @@ func (u *User) Invite(id int64) {
 	}
 	b, err := json.Marshal(pl)
 	if err != nil {
-		u.Println("can't marshal ws payload", pl)
+		u.Println("(inv) can't marshal ws payload", pl)
 		return
 	}
 	go func() { // to avoid blocking
@@ -77,6 +77,21 @@ func (u *User) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
 		return
 	}
 	go u.rep.Add(id, t)
+}
+
+func (u *User) Del(id int64) {
+	pl := &defs.WsPload{
+		Action: defs.ActDelete,
+		Id:     id,
+	}
+	b, err := json.Marshal(pl)
+	if err != nil {
+		u.Println("(del) can't marshal ws payload", pl)
+		return
+	}
+	go func() { // to avoid blocking
+		u.wsChan <- b
+	}()
 }
 
 func (u *User) Handler(conn *websocket.Conn) {

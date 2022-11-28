@@ -4,6 +4,7 @@ const (
 	ActPublish   = "pub" // up, down
 	ActInvite    = "inv" // down; front should start "sub" with the same "id"
 	ActSubscribe = "sub" // up, down
+	ActDelete    = "del" // down
 )
 
 type WsPload struct {
