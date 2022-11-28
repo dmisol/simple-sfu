@@ -57,6 +57,7 @@
             }
 
             ws.onclose = function(e) {
+                ve.forEach(hide);
                 setTimeout(function() {
                     startws();
                 }, 1000);
@@ -144,6 +145,7 @@
                     if (ve.has(id)) {
                         //console.log("replacing video " + id);
                         el = ve.get(id);
+                        el.hidden = false;
                     } else {
                         //console.log("new video " + id);
                         el = document.createElement(kind);
@@ -231,6 +233,10 @@
                         })
                         .catch(e => console.log(e));
                 }).catch(e => console.log(e));
+        }
+
+        function hide(v) {
+            v.hidden = true;
         }
     </script>
 
