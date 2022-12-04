@@ -1,2 +1,1 @@
-port: 443
-hosts: [https://sfu.flexatar.com, sfu.flexatar.com]
+port: 8080

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
+	"github.com/dmisol/simple-sfu/pkg/media"
 	"github.com/fasthttp/websocket"
 	"github.com/pion/rtcp"
 	"github.com/pion/webrtc/v3"
@@ -43,7 +44,7 @@ type User struct {
 
 	api    *webrtc.API
 	wsChan chan []byte
-	rep    *replicator
+	media  defs.Media
 
 	publisher int32
 
@@ -72,11 +73,11 @@ func (u *User) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
-	if u.rep == nil {
+	if u.media == nil {
 		u.Println("can't add: replicator not started")
 		return
 	}
-	go u.rep.Add(id, t)
+	go u.media.Add(id, t)
 }
 
 func (u *User) Del(id int64) {
@@ -182,14 +183,13 @@ func (u *User) negotiatePublisher(data []byte) {
 	}
 	//u.Println("pub offer", offer.SDP)
 
-	r := &replicator{
-		welcome: func() {
+	r := media.NewCloner(
+		func() {
 			u.inviteOthers(u.Id)
 		},
-		stop: func() {
+		func() {
 			u.conn.Close()
-		},
-	}
+		})
 
 	pc, err := u.api.NewPeerConnection(webrtc.Configuration{SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback})
 	if err != nil {
@@ -290,7 +290,7 @@ func (u *User) negotiatePublisher(data []byte) {
 
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.rep = r
+	u.media = r
 	u.pc = append(u.pc, pc)
 
 	// TODO: run it!
