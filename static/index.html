@@ -32,7 +32,7 @@
             } else {
                 uri = "ws:";
             }
-            uri += "//" + loc.host + "/ws";
+            uri += "//" + loc.host + "/ws"; // + "?ftar=1234";
 
             ws = new WebSocket(uri);
             ws.onopen = function(event) {

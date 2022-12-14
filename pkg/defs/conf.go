@@ -9,6 +9,15 @@ import (
 type Conf struct {
 	Port  string   `yaml:"port"`
 	Hosts []string `yaml:"hosts,omitempty"`
+
+	*AnimConf `yaml:"anim,omitempty"`
+}
+
+type AnimConf struct {
+	FPS    int    `yaml:"fps,omitempty"`
+	W      int    `yaml:"width,omitempty"`
+	H      int    `yaml:"height,omitempty"`
+	Static string `yaml:"static,omitempty"`
 }
 
 func ReadConf(name string) (c *Conf, err error) {

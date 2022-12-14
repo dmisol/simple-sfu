@@ -2,32 +2,37 @@ package rtc
 
 import (
 	"log"
+	"os"
+	"path"
+	"strconv"
 	"sync"
 	"sync/atomic"
 
+	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/fasthttp/websocket"
 	"github.com/pion/webrtc/v3"
 	"github.com/valyala/fasthttp"
 )
 
-func NewRoom() (x *Room) {
+func NewRoom(c *defs.Conf) (x *Room) {
 	x = &Room{
 		Users:    map[int64]*User{},
 		upgrader: websocket.FastHTTPUpgrader{},
+		conf:     c,
 	}
 
 	m := webrtc.MediaEngine{}
 
 	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
-		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/H264", ClockRate: 90000, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
-		PayloadType:        96,
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "video/H264", ClockRate: defs.ClkVideo, Channels: 0, SDPFmtpLine: "", RTCPFeedback: nil},
+		PayloadType:        defs.PtVideo,
 	}, webrtc.RTPCodecTypeVideo); err != nil {
 		log.Println("reg videoo", err)
 		return
 	}
 	if err := m.RegisterCodec(webrtc.RTPCodecParameters{
-		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "audio/opus", ClockRate: 48000, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil},
-		PayloadType:        111,
+		RTPCodecCapability: webrtc.RTPCodecCapability{MimeType: "audio/opus", ClockRate: defs.ClkAudio, Channels: 2, SDPFmtpLine: "", RTCPFeedback: nil},
+		PayloadType:        defs.PtAudio,
 	}, webrtc.RTPCodecTypeAudio); err != nil {
 		log.Println("reg audio", err)
 		return
@@ -77,6 +82,7 @@ func NewRoom() (x *Room) {
 
 type Room struct {
 	mu       sync.Mutex
+	conf     *defs.Conf
 	Users    map[int64]*User // by [id]
 	upgrader websocket.FastHTTPUpgrader
 	api      *webrtc.API
@@ -119,7 +125,21 @@ func (x *Room) stop(uid int64) {
 
 func (x *Room) Handler(r *fasthttp.RequestCtx) {
 	uid := atomic.AddInt64(&x.lastUid, 1)
-	user := NewUser(x.api, uid, x.invite, x.subscribe, x.stop)
+
+	ftar := string(r.QueryArgs().Peek("ftar"))
+	var ij *defs.InitialJson
+	if len(ftar) != 0 {
+		log.Println("using flexatar", ftar)
+		ij = &defs.InitialJson{
+			Dir:  path.Join(defs.RamDisk, strconv.Itoa(int(uid))),
+			Ftar: "todo...",
+			W:    x.conf.W,
+			H:    x.conf.H,
+			FPS:  x.conf.FPS,
+		}
+		os.MkdirAll(ij.Dir, os.ModeDir)
+	}
+	user := NewUser(x.api, uid, x.invite, x.subscribe, x.stop, ij)
 	err := x.upgrader.Upgrade(r, user.Handler)
 	if err != nil {
 		log.Print("upgrade", err)

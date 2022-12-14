@@ -24,9 +24,7 @@ type MediaCloner struct {
 }
 
 func (r *MediaCloner) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-	tr := &TrackReplicator{
-		tracks: make(map[int64]*webrtc.TrackLocalStaticRTP),
-	}
+	tr := NewTrackTeplicator()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -36,7 +34,7 @@ func (r *MediaCloner) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTPRecei
 	} else {
 		r.v = tr
 	}
-	go tr.run(t, r.stop)
+	go tr.Run(t, r.stop)
 	if r.a != nil && r.v != nil {
 		go r.welcome() // both src tracks ready, ivite to add localTracks
 	}

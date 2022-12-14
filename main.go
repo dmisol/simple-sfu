@@ -19,7 +19,7 @@ func main() {
 		return
 	}
 
-	room := rtc.NewRoom()
+	room := rtc.NewRoom(c)
 	sh := fasthttp.FSHandler("static", 0)
 
 	srv := fasthttp.Server{

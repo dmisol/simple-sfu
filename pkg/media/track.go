@@ -8,12 +8,19 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
+func NewTrackTeplicator() (tr *TrackReplicator) {
+	tr = &TrackReplicator{
+		tracks: make(map[int64]*webrtc.TrackLocalStaticRTP),
+	}
+	return
+}
+
 type TrackReplicator struct {
 	mu     sync.Mutex
 	tracks map[int64]*webrtc.TrackLocalStaticRTP // [id] - neighbour users, to whom
 }
 
-func (tr *TrackReplicator) run(r defs.TrackLocalRTP, stop func()) {
+func (tr *TrackReplicator) Run(r defs.TrackLocalRTP, stop func()) {
 	defer stop()
 
 	kind := r.Kind().String()

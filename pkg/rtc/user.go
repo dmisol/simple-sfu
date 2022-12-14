@@ -9,6 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dmisol/simple-sfu/pkg/anim"
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/dmisol/simple-sfu/pkg/media"
 	"github.com/fasthttp/websocket"
@@ -20,7 +21,7 @@ const (
 	timeout = 2 * time.Hour
 )
 
-func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64)) (u *User) {
+func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64), ij *defs.InitialJson) (u *User) {
 	u = &User{
 		Id:           id,
 		inviteOthers: inviteOthers, // to invite others to subscribe
@@ -28,6 +29,7 @@ func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo fu
 		stop:         stop,
 		wsChan:       make(chan []byte, 5), // to invite the given user to subscribe publisher[id]
 		api:          api,
+		initJson:     ij,
 	}
 
 	return
@@ -47,6 +49,7 @@ type User struct {
 	media  defs.Media
 
 	publisher int32
+	initJson  *defs.InitialJson
 
 	pc []*webrtc.PeerConnection
 }
@@ -183,14 +186,6 @@ func (u *User) negotiatePublisher(data []byte) {
 	}
 	//u.Println("pub offer", offer.SDP)
 
-	r := media.NewCloner(
-		func() {
-			u.inviteOthers(u.Id)
-		},
-		func() {
-			u.conn.Close()
-		})
-
 	pc, err := u.api.NewPeerConnection(webrtc.Configuration{SDPSemantics: webrtc.SDPSemanticsUnifiedPlanWithFallback})
 	if err != nil {
 		u.Println("pub peerconn", err)
@@ -202,10 +197,32 @@ func (u *User) negotiatePublisher(data []byte) {
 		u.conn.Close()
 		return
 	}
-	if _, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
-		u.Println("pub add video trx", err)
-		u.conn.Close()
-		return
+
+	if u.initJson != nil {
+		u.Println("sfu with flexatar, negotiating audio only")
+		u.media = anim.NewAnimator(
+			func() {
+				u.inviteOthers(u.Id)
+			},
+			func() {
+				u.conn.Close()
+			}, u.Id, *u.initJson)
+	} else {
+		u.media = media.NewCloner(
+			func() {
+				u.inviteOthers(u.Id)
+			},
+			func() {
+				u.conn.Close()
+			})
+
+		u.Println("regular sfu, negotiating h264 video as well")
+
+		if _, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
+			u.Println("pub add video trx", err)
+			u.conn.Close()
+			return
+		}
 	}
 
 	pc.OnTrack(func(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
@@ -225,7 +242,7 @@ func (u *User) negotiatePublisher(data []byte) {
 				}
 			}
 		}()
-		r.Replicate(t, receiver)
+		u.media.Replicate(t, receiver)
 	})
 
 	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
@@ -290,7 +307,7 @@ func (u *User) negotiatePublisher(data []byte) {
 
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	u.media = r
+	//u.media = r
 	u.pc = append(u.pc, pc)
 
 	// TODO: run it!
