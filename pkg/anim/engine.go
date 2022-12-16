@@ -19,7 +19,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func newAnimEngine(ctx context.Context, addr string, f func(), ij defs.InitialJson) (p *AnimEngine, err error) {
+func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
 
 	// create structure
 	p = &AnimEngine{dir: ij.Dir}

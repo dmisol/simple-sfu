@@ -19,7 +19,7 @@ type Media interface {
 	Add(int64, *webrtc.TrackLocalStaticRTP)             // user to receive
 }
 
-type TrackLocalRTP interface {
+type TrackRTPReader interface {
 	Kind() webrtc.RTPCodecType
 	ReadRTP() (*rtp.Packet, interceptor.Attributes, error)
 }

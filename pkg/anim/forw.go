@@ -10,7 +10,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func NewAnimator(welcome func(), stop func(), id int64, ij defs.InitialJson) (anim *MediaAnimator) {
+func NewAnimator(welcome func(), stop func(), id int64, ij *defs.InitialJson) (anim *MediaAnimator) {
 	anim = &MediaAnimator{
 		welcome: welcome,
 		stop:    stop,
@@ -45,17 +45,7 @@ func (anim *MediaAnimator) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTP
 		// 1. store opus packets for re-tx-ing
 		// 2. feed encoded audio to a server
 		anim.ap = NewAudioProc(t, anim.ae)
-		go func() {
-			for {
-				p, _, err := t.ReadRTP()
-				if err != nil {
-					anim.Println("stop reading audio from user to animate")
-					return
-				}
-				anim.ap.AppendRTP(p)
-			}
-		}()
-		anim.Println("audio processing ")
+		anim.Println("audio processing")
 	}
 }
 

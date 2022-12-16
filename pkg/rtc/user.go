@@ -206,7 +206,7 @@ func (u *User) negotiatePublisher(data []byte) {
 			},
 			func() {
 				u.conn.Close()
-			}, u.Id, *u.initJson)
+			}, u.Id, u.initJson)
 	} else {
 		u.media = media.NewCloner(
 			func() {

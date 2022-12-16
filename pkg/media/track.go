@@ -20,7 +20,7 @@ type TrackReplicator struct {
 	tracks map[int64]*webrtc.TrackLocalStaticRTP // [id] - neighbour users, to whom
 }
 
-func (tr *TrackReplicator) Run(r defs.TrackLocalRTP, stop func()) {
+func (tr *TrackReplicator) Run(r defs.TrackRTPReader, stop func()) {
 	defer stop()
 
 	kind := r.Kind().String()

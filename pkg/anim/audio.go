@@ -8,6 +8,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/pion/interceptor"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
@@ -24,7 +25,7 @@ type AudioProc struct {
 	stop      chan bool
 }
 
-func NewAudioProc(remote *webrtc.TrackRemote, anim io.Writer) (a *AudioProc) {
+func NewAudioProc(remote defs.TrackRTPReader /**webrtc.TrackRemote*/, anim io.Writer) (a *AudioProc) {
 	a = &AudioProc{
 		stop: make(chan bool),
 		conv: newConv(anim),
@@ -72,7 +73,7 @@ func (a *AudioProc) Close() (err error) {
 	return
 }
 
-func (a *AudioProc) run(remote *webrtc.TrackRemote) {
+func (a *AudioProc) run(remote defs.TrackRTPReader) { //(remote *webrtc.TrackRemote) {
 	for {
 		select {
 		case <-a.stop:

@@ -1,0 +1,9 @@
+anim: 127.0.0.1:50000
+ramdisk: /run/tmp
+key: API5qaXveYGsanD
+secret: GzRQBMwhe7VQkEDrcU8Cbd09K0IRZmFDpeTAmmfSET9A
+ws: wss://sfu.flexatar.com:7880
+hall: ft
+initjson: testdata/init.json
+ftar: somepath/0.p
+
