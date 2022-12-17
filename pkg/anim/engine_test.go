@@ -40,6 +40,9 @@ func TestAsClient(t *testing.T) {
 		H:    conf.H,
 		FPS:  conf.FPS,
 	}
+
+	os.MkdirAll(ij.Dir, os.ModeDir)
+
 	ae, err = newAnimEngine(ctx, defs.Addr, onVideo, ij)
 	if err != nil {
 		t.Fatal(err)
