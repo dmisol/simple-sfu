@@ -55,10 +55,13 @@ func (c *conv) Close() error {
 }
 
 func (c *conv) AppendRTP(rtp *rtp.Packet) (err error) {
+	return c.AppendOpusPayload(rtp.Payload)
+}
 
-	samplesPerFrame := int(C.opus_packet_get_samples_per_frame((*C.uchar)(&rtp.Payload[0]), C.int(48000)))
+func (c *conv) AppendOpusPayload(pl []byte) (err error) {
+	samplesPerFrame := int(C.opus_packet_get_samples_per_frame((*C.uchar)(&pl[0]), C.int(48000)))
 	pcm := make([]int16, samplesPerFrame)
-	samples := C.opus_decode(c.dec, (*C.uchar)(&rtp.Payload[0]), C.opus_int32(len(rtp.Payload)), (*C.opus_int16)(&pcm[0]), C.int(cap(pcm)/audiochan), 0)
+	samples := C.opus_decode(c.dec, (*C.uchar)(&pl[0]), C.opus_int32(len(pl)), (*C.opus_int16)(&pcm[0]), C.int(cap(pcm)/audiochan), 0)
 	if samples < 0 {
 		err = ErrDecoding
 		return

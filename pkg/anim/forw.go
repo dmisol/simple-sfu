@@ -49,7 +49,23 @@ func (anim *MediaAnimator) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTP
 	}
 }
 
-func (anim *MediaAnimator) Add(id int64, t *webrtc.TrackLocalStaticRTP) {}
+func (anim *MediaAnimator) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
+	anim.mu.Lock()
+	defer anim.mu.Unlock()
+
+	if t.Kind() == webrtc.RTPCodecTypeAudio {
+		if anim.a != nil {
+			anim.a.Add(id, t)
+			return
+		}
+	} else {
+		if anim.v != nil {
+			anim.v.Add(id, t)
+			return
+		}
+	}
+	anim.Println("can't add track of given kind", t, t.Kind().String())
+}
 
 func (anim *MediaAnimator) onEncodedVideo() {
 	anim.Println("encoded video appeared")
