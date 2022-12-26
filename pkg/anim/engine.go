@@ -107,13 +107,19 @@ func (p *AnimEngine) procImage(name string) (err error) {
 func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 	// create file
 	name := fmt.Sprintf("%s/%d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
+	p.Println("wrining", name, len(pcm))
 	if err = os.WriteFile(name, pcm, 0666); err != nil {
+		p.Println("wr", err)
 		return
 	}
 	i = len(pcm)
 
 	// send name to socket
-	_, err = p.conn.Write([]byte(name))
+	p.Println("sending")
+	if _, err = p.conn.Write([]byte(name)); err != nil {
+		p.Println("snd", err)
+	}
+
 	return
 }
 
