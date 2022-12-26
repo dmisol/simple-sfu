@@ -18,15 +18,15 @@ import (
 )
 
 var (
-	ap  *AudioProc
-	ae  *AnimEngine
-	dt  = 20 * time.Millisecond
-	ctx context.Context
+	ap *AudioProc
+	ae *AnimEngine
+	dt = 20 * time.Millisecond
 )
 
 func TestAsClient(t *testing.T) {
 
-	ctx, _ = context.WithTimeout(context.Background(), 300*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
+	defer cancel()
 
 	cf := path.Join("testdata", "client.yaml")
 	conf, err := defs.ReadConf(cf)

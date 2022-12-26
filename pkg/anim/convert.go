@@ -23,7 +23,7 @@ const (
 )
 
 var (
-	ErrDecoding = errors.New("Error decoding opus")
+	ErrDecoding = errors.New("error decoding opus")
 )
 
 func newConv(dest io.Writer) (c *conv) {

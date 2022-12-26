@@ -87,7 +87,7 @@ func (a *AudioProc) run(remote defs.TrackRTPReader) { //(remote *webrtc.TrackRem
 			}
 			func() {
 				a.mu.Lock()
-				a.mu.Unlock()
+				defer a.mu.Unlock()
 				a.fifo = append(a.fifo, p)
 			}()
 			atomic.AddInt64(&a.sinceLast, atomic.LoadInt64(&a.enabled))
