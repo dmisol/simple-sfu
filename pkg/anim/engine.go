@@ -106,6 +106,10 @@ func (p *AnimEngine) procImage(name string) (err error) {
 // Write() will be called when PCM portion is ready to be sent for animation computing
 func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 	// create file
+	if err = os.MkdirAll(p.dir, 0777); err != nil {
+		p.Println("mkdirall", err)
+		return
+	}
 	name := fmt.Sprintf("%s/%d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
 	p.Println("wrining", name, len(pcm))
 	if err = os.WriteFile(name, pcm, 0666); err != nil {
