@@ -20,6 +20,8 @@ const (
 	audiochan = 1
 	opusRate  = 48000
 	voskRate  = 16000
+
+	testNoResample = true
 )
 
 var (
@@ -34,6 +36,10 @@ func newConv(dest io.Writer) (c *conv) {
 	if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.I16, resample.HighQ); err != nil {
 		c.Println("resampler creating", err)
 	}
+	if testNoResample {
+		c.Println("ATTN! resampling blocked!")
+		c.res = c.dest
+	}
 
 	e := C.int(0)
 	er := &e
@@ -45,7 +51,7 @@ func newConv(dest io.Writer) (c *conv) {
 type conv struct {
 	dest io.Writer
 	dec  *C.OpusDecoder
-	res  *resample.Resampler
+	res  io.Writer //*resample.Resampler
 	b    []byte
 }
 
