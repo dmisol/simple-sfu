@@ -2,6 +2,8 @@ package anim
 
 import (
 	"context"
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
@@ -28,18 +30,22 @@ func TestAsClient(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Second)
 	defer cancel()
 
-	cf := path.Join("testdata", "client.yaml")
-	conf, err := defs.ReadConf(cf)
+	/*
+		cf := path.Join("testdata", "client.yaml")
+			conf, err := defs.ReadConf(cf)
+			if err != nil {
+				t.Fatal(err)
+			}
+	*/
+	f, err := ioutil.ReadFile(path.Join("testdata", "init.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	ij := &defs.InitialJson{
-		Dir:  path.Join(defs.RamDisk, "testAsClient"),
-		Ftar: "todo...",
-		W:    conf.W,
-		H:    conf.H,
-		FPS:  conf.FPS,
+	ij := &defs.InitialJson{}
+	if err = json.Unmarshal(f, ij); err != nil {
+		t.Fatal(err)
 	}
+	ij.Dir = path.Join(defs.RamDisk, "testAsClient")
 
 	os.MkdirAll(ij.Dir, os.ModeDir)
 
