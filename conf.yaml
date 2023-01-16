@@ -1,4 +1,5 @@
-port: 8080
+port: 443
+hosts: [https://flexatar.com, flexatar.com]
 redirect: https://flexatar.com:8443
 anim:
   fps: 24

@@ -37,6 +37,8 @@ func main() {
 					r.SendFile(path.Join("static", "sfu.html"))
 				case "/cef": // TODO: a page to subscribe all streams, without publishing
 					r.SendFile(path.Join("static", "cef.html"))
+				case "/":
+					sh(r)
 				default:
 					if len(c.Redirect) == 0 {
 						log.Println("redirect not set")
