@@ -45,7 +45,11 @@ func main() {
 						r.Error("not configured", fasthttp.StatusBadRequest)
 						return
 					}
+					qa := r.QueryArgs().String()
 					dest := c.Redirect + pth
+					if len(qa) > 0 {
+						dest += "?" + qa
+					}
 					log.Println(pth, "re-routing to", dest)
 					r.Redirect(dest, fasthttp.StatusPermanentRedirect)
 				}
