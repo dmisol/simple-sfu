@@ -7,8 +7,9 @@ import (
 )
 
 type Conf struct {
-	Port  string   `yaml:"port"`
-	Hosts []string `yaml:"hosts,omitempty"`
+	Port     string   `yaml:"port"`
+	Hosts    []string `yaml:"hosts,omitempty"`
+	Redirect string   `yaml:"redirect,omitempty"`
 
 	*AnimConf `yaml:"anim,omitempty"`
 }

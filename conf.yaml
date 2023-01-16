@@ -1,4 +1,5 @@
 port: 8080
+redirect: https://flexatar.com:8443
 anim:
   fps: 24
   width: 300

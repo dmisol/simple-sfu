@@ -4,6 +4,7 @@ import (
 	"crypto/tls"
 	"log"
 	"net"
+	"path"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	rtc "github.com/dmisol/simple-sfu/pkg/rtc"
@@ -24,12 +25,31 @@ func main() {
 
 	srv := fasthttp.Server{
 		Handler: func(r *fasthttp.RequestCtx) {
-			switch string(r.Path()) {
-			case "/ws":
-				room.Handler(r)
-			default:
-				sh(r)
+			ref := string(r.Referer())
+			pth := string(r.Path())
+			// log.Println(pth, "referer:", ref)
+
+			if len(ref) == 0 {
+				switch string(r.Path()) {
+				case "/ws":
+					room.Handler(r)
+				case "/sfu": // TODO: a page permitting to select a flexatar to replace user's video
+					r.SendFile(path.Join("static", "sfu.html"))
+				case "/cef": // TODO: a page to subscribe all streams, without publishing
+					r.SendFile(path.Join("static", "cef.html"))
+				default:
+					if len(c.Redirect) == 0 {
+						log.Println("redirect not set")
+						r.Error("not configured", fasthttp.StatusBadRequest)
+						return
+					}
+					dest := c.Redirect + pth
+					log.Println(pth, "re-routing to", dest)
+					r.Redirect(dest, fasthttp.StatusPermanentRedirect)
+				}
+				return
 			}
+			sh(r)
 		},
 	}
 
