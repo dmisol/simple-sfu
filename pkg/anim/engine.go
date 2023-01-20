@@ -121,7 +121,7 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 
 	// send name to socket
 	p.Println("sending")
-	if _, err = p.conn.Write([]byte(name)); err != nil {
+	if _, err = p.conn.Write([]byte(name + "\n")); err != nil {
 		p.Println("snd", err)
 	}
 

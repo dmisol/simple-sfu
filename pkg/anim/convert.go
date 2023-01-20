@@ -21,7 +21,7 @@ const (
 	opusRate  = 48000
 	voskRate  = 16000
 
-	testNoResample = true
+	testNoResample = false
 )
 
 var (
@@ -72,12 +72,24 @@ func (c *conv) AppendOpusPayload(pl []byte) (err error) {
 		err = ErrDecoding
 		return
 	}
+	/*
+		pcmData := make([]byte, 0)
+		pcmBuffer := bytes.NewBuffer(pcmData)
+		for _, v := range pcm {
+			binary.Write(pcmBuffer, binary.LittleEndian, v)
+		}
+		err = c.appendBytes(pcmBuffer.Bytes())
+	*/
+
+	// nn model is trained float32
 	pcmData := make([]byte, 0)
 	pcmBuffer := bytes.NewBuffer(pcmData)
 	for _, v := range pcm {
-		binary.Write(pcmBuffer, binary.LittleEndian, v)
+		f := float32(v)
+		binary.Write(pcmBuffer, binary.LittleEndian, f)
 	}
 	err = c.appendBytes(pcmBuffer.Bytes())
+
 	return
 }
 
