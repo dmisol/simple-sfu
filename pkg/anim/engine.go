@@ -68,6 +68,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 					return
 				}
 				name := string(b[:i])
+				p.Println("h264 name", name)
 				if err = p.procImage(name); err != nil {
 					p.Println("h264 encoding", err)
 					return

@@ -47,7 +47,7 @@ func TestAsClient(t *testing.T) {
 	}
 	ij.Dir = path.Join(defs.RamDisk, "testAsClient")
 
-	os.MkdirAll(ij.Dir, os.ModeDir)
+	os.MkdirAll(ij.Dir, 0777)
 
 	ae, err = newAnimEngine(ctx, defs.Addr, onVideo, ij)
 	if err != nil {

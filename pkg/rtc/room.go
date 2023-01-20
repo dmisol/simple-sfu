@@ -137,7 +137,7 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 			H:    x.conf.H,
 			FPS:  x.conf.FPS,
 		}
-		os.MkdirAll(ij.Dir, os.ModeDir)
+		os.MkdirAll(ij.Dir, 0777)
 	}
 	user := NewUser(x.api, uid, x.invite, x.subscribe, x.stop, ij)
 	err := x.upgrader.Upgrade(r, user.Handler)
