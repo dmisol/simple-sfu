@@ -33,7 +33,7 @@ func newConv(dest io.Writer) (c *conv) {
 		dest: dest,
 	}
 	var err error
-	if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.I16, resample.HighQ); err != nil {
+	if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.I16, resample.LowQ); err != nil {
 		c.Println("resampler creating", err)
 	}
 	if testNoResample {

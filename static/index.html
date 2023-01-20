@@ -5,9 +5,18 @@
 </head>
 
 <body>
-    <div id="sub"> </div>
+    <div id="menu">
+        <button onclick="window.legacy()"> With Webcam </button>
+        <button onclick="window.selectFlexatar()" disabled> With Flexatar </button>
+    </div>
+
+    <p>videos from others</p>
+    <div id="sub"></div>
+
+    <p>own videos: as captured and as seen by others</p>
     <div id="pub">
-        <p>own video, as captured and as seen by others </div>
+
+    </div>
     <script>
         const subParent = document.getElementById("sub");
         const pubParent = document.getElementById("pub");
@@ -15,13 +24,18 @@
         const WIDTH = 640;
         const HEIGHT = 320;
 
-        var ws = startws();
+        var ws; // = startws();
         let pc = new RTCPeerConnection();
         let userid = 0;
 
         let pcsub = new Map();
         let ae = new Map();
         let ve = new Map();
+
+        function legacy() {
+            document.getElementById("menu").style.display = 'none';
+            ws = startws();
+        }
 
         function startws() {
             var loc = window.location,
