@@ -5,6 +5,7 @@ import (
 	"log"
 	"net"
 	"path"
+	"syscall"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	rtc "github.com/dmisol/simple-sfu/pkg/rtc"
@@ -19,6 +20,8 @@ func main() {
 		log.Println("conf", err)
 		return
 	}
+
+	syscall.Umask(0)
 
 	room := rtc.NewRoom(c)
 	sh := fasthttp.FSHandler("static", 0)

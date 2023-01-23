@@ -1,3 +1,0 @@
-package anim
-
-func OggDecodeAndFeed()

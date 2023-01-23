@@ -21,7 +21,7 @@ const (
 	opusRate  = 48000
 	voskRate  = 16000
 
-	testNoResample = false
+	noResample = true
 )
 
 var (
@@ -32,13 +32,15 @@ func newConv(dest io.Writer) (c *conv) {
 	c = &conv{
 		dest: dest,
 	}
-	var err error
-	if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.I16, resample.LowQ); err != nil {
-		c.Println("resampler creating", err)
-	}
-	if testNoResample {
+
+	if noResample {
 		c.Println("ATTN! resampling blocked!")
 		c.res = c.dest
+	} else {
+		var err error
+		if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.F32, resample.LowQ); err != nil { // I16
+			c.Println("resampler creating", err)
+		}
 	}
 
 	e := C.int(0)
@@ -72,24 +74,24 @@ func (c *conv) AppendOpusPayload(pl []byte) (err error) {
 		err = ErrDecoding
 		return
 	}
-	/*
-		pcmData := make([]byte, 0)
-		pcmBuffer := bytes.NewBuffer(pcmData)
-		for _, v := range pcm {
-			binary.Write(pcmBuffer, binary.LittleEndian, v)
-		}
-		err = c.appendBytes(pcmBuffer.Bytes())
-	*/
 
-	// nn model is trained float32
 	pcmData := make([]byte, 0)
 	pcmBuffer := bytes.NewBuffer(pcmData)
 	for _, v := range pcm {
-		f := float32(v)
-		binary.Write(pcmBuffer, binary.LittleEndian, f)
+		binary.Write(pcmBuffer, binary.LittleEndian, v)
 	}
 	err = c.appendBytes(pcmBuffer.Bytes())
 
+	/*
+		// nn model is trained float32
+		pcmData := make([]byte, 0)
+		pcmBuffer := bytes.NewBuffer(pcmData)
+		for _, v := range pcm {
+			f := float32(v)
+			binary.Write(pcmBuffer, binary.LittleEndian, f)
+		}
+		err = c.appendBytes(pcmBuffer.Bytes())
+	*/
 	return
 }
 

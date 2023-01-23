@@ -7,6 +7,7 @@ import (
 	"log"
 	"os"
 	"path"
+	"syscall"
 	"testing"
 	"time"
 
@@ -47,6 +48,7 @@ func TestAsClient(t *testing.T) {
 	}
 	ij.Dir = path.Join(defs.RamDisk, "testAsClient")
 
+	syscall.Umask(0)
 	os.MkdirAll(ij.Dir, 0777)
 
 	ae, err = newAnimEngine(ctx, defs.Addr, onVideo, ij)
