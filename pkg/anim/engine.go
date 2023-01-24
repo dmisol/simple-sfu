@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	_ "image/jpeg"
 	"log"
 	"net"
 	"os"
@@ -70,10 +71,9 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 				}
 				name := string(b[:i])
 				name = strings.TrimSuffix(name, "\n")
-				p.Println("h264 name", name)
 				if err = p.procImage(name); err != nil {
-					p.Println("h264 encoding", err)
-					//return
+					p.Println("h264 encoding", name, err)
+					return
 				}
 			}
 		}
