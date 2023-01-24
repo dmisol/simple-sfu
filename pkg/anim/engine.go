@@ -57,6 +57,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 	go func() {
 		defer p.conn.Close()
 
+		cntr := uint64(0)
 		for {
 			select {
 			case <-ctx.Done():
@@ -75,6 +76,10 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 					p.Println("h264 encoding", name, err)
 					return
 				}
+				if cntr == 0 {
+					go f()
+				}
+				cntr++
 			}
 		}
 	}()
@@ -158,8 +163,9 @@ type Bridge struct {
 	remained []byte
 
 	// todo..
-	pack rtp.Packetizer
-	seq  rtp.Sequencer
+	pack    rtp.Packetizer
+	seq     rtp.Sequencer
+	packets []*rtp.Packet
 }
 
 func (b *Bridge) Write(p []byte) (i int, err error) {
@@ -169,6 +175,8 @@ func (b *Bridge) Write(p []byte) (i int, err error) {
 	defer b.mu.Unlock()
 
 	b.data = append(b.data, p)
+	// TODO: remove b.data & b.Read(), store paclets to b.packets like
+	// https://github.com/pion/webrtc/blob/66e8dfc9d824ceb80fdd75ac874d750f53747676/track_local_static.go#L274
 	return
 }
 
@@ -196,7 +204,7 @@ func (b *Bridge) Read(p []byte) (i int, err error) {
 
 func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) {
 	// todo!
-
+	// just feed (preliminary created) packets from b.packets
 	return
 }
 
