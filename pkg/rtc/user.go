@@ -207,6 +207,11 @@ func (u *User) negotiatePublisher(data []byte) {
 			func() {
 				u.conn.Close()
 			}, u.Id, u.initJson)
+		if u.media == nil {
+			u.Println("error: animation engine failed")
+			return
+		}
+
 	} else {
 		u.media = media.NewCloner(
 			func() {

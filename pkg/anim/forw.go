@@ -16,8 +16,10 @@ func NewAnimator(welcome func(), stop func(), id int64, ij *defs.InitialJson) (a
 		stop:    stop,
 	}
 	v, err := newAnimEngine(context.Background(), defs.Addr, anim.onEncodedVideo, ij)
-	if v != nil {
+	if err != nil {
 		anim.Println("anim engine", err)
+
+		anim.stop()
 		anim = nil
 		return
 	}
