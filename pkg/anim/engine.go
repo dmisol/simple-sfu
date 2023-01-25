@@ -23,7 +23,9 @@ import (
 )
 
 const (
-	bridgePack = true
+	bridgePack          = true
+	maxReadRtpAttempts  = 500 // *10ms = 5 sec
+	maxFifoVideoPackets = 500 // several seconds, depending on the daya being tx'd _
 )
 
 func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
@@ -182,6 +184,11 @@ func (b *Bridge) Write(p []byte) (i int, err error) {
 	defer b.mu.Unlock()
 
 	if bridgePack {
+		if len(b.packets) > maxFifoVideoPackets {
+			err = fmt.Errorf("video fifo exceeds limit")
+			return
+		}
+
 		packs := b.pack.Packetize(p, uint32(len(p)))
 		b.packets = append(b.packets, packs...)
 	} else {
@@ -216,6 +223,7 @@ func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) 
 	t := time.NewTicker(10 * time.Millisecond)
 	defer t.Stop()
 
+	cntr := 0
 	for {
 		<-t.C
 
@@ -226,6 +234,11 @@ func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) 
 
 		if l > 0 {
 			break
+		}
+
+		cntr++
+		if cntr > maxReadRtpAttempts {
+			err = fmt.Errorf("waiting too long")
 		}
 	}
 

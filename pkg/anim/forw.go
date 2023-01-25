@@ -76,11 +76,11 @@ func (anim *MediaAnimator) onEncodedVideo() {
 	defer anim.mu.Unlock()
 
 	tr := media.NewTrackTeplicator()
-	tr.Run(anim.ap, anim.stop)
+	go tr.Run(anim.ap, anim.stop)
 	anim.a = tr
 
 	tr = media.NewTrackTeplicator()
-	tr.Run(anim.ae, anim.stop)
+	go tr.Run(anim.ae, anim.stop)
 	anim.v = tr
 
 	anim.Println("replicators started")
