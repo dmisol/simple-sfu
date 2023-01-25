@@ -8,7 +8,7 @@ import (
 	"path"
 	"sync"
 	"sync/atomic"
-	"syscall"
+//	"syscall"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/fasthttp/websocket"
@@ -140,12 +140,15 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 		if err != nil {
 			log.Println("init.json file read", err)
 		}
+		ij = &defs.InitialJson{}
 		if err = json.Unmarshal(f, ij); err != nil {
 			log.Println("init.json file unmarshal", err)
 		}
 		ij.Dir = path.Join(defs.RamDisk, uuid.NewString())
-		syscall.Umask(0)
-		os.MkdirAll(ij.Dir, 0777)
+		//ij.Ftar = ftar
+		//syscall.Umask(0)
+		err = os.MkdirAll(ij.Dir, 0777)
+		log.Println(ij.Dir, err)
 
 		/*
 			ij = &defs.InitialJson{

@@ -2,7 +2,7 @@ package defs
 
 const (
 	Addr    = ":50000"
-	RamDisk = "/run/tmp"
+	RamDisk = "/tmp"	//"/run/tmp"
 )
 
 type InitialJson struct {
