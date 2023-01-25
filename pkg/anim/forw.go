@@ -83,6 +83,8 @@ func (anim *MediaAnimator) onEncodedVideo() {
 	tr.Run(anim.ae, anim.stop)
 	anim.v = tr
 
+	anim.Println("replicators started")
+
 	anim.welcome()
 }
 

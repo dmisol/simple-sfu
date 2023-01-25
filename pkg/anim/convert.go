@@ -96,7 +96,7 @@ func (c *conv) AppendOpusPayload(pl []byte) (err error) {
 }
 
 func (c *conv) appendBytes(b []byte) (err error) {
-	c.Println("decoded bytes from opus", len(b))
+	// c.Println("decoded bytes from opus", len(b))
 	if _, err = c.res.Write(b); err != nil {
 		c.Println("resampling", err)
 	}

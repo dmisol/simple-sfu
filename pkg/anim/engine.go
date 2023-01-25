@@ -126,7 +126,7 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 		return
 	}
 	name := fmt.Sprintf("%s/%d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
-	p.Println("wrining", name, len(pcm))
+	// p.Println("writing", name, len(pcm))
 	if err = os.WriteFile(name, pcm, 0666); err != nil {
 		p.Println("wr", err)
 		return
@@ -134,7 +134,7 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 	i = len(pcm)
 
 	// send name to socket
-	p.Println("sending")
+	// p.Println("sending")
 	if _, err = p.conn.Write([]byte(name + "\n")); err != nil {
 		p.Println("snd", err)
 	}

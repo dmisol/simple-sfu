@@ -202,6 +202,7 @@ func (u *User) negotiatePublisher(data []byte) {
 		u.Println("sfu with flexatar, negotiating audio only")
 		u.media = anim.NewAnimator(
 			func() {
+				u.Println("inviting for delayed audio and ftlexatar video")
 				u.inviteOthers(u.Id)
 			},
 			func() {
