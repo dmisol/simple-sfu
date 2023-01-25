@@ -1,15 +1,18 @@
 package rtc
 
 import (
+	"encoding/json"
+	"io/ioutil"
 	"log"
 	"os"
 	"path"
-	"strconv"
 	"sync"
 	"sync/atomic"
+	"syscall"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/fasthttp/websocket"
+	"github.com/google/uuid"
 	"github.com/pion/webrtc/v3"
 	"github.com/valyala/fasthttp"
 )
@@ -130,14 +133,30 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 	var ij *defs.InitialJson
 	if len(ftar) != 0 {
 		log.Println("using flexatar", ftar)
-		ij = &defs.InitialJson{
-			Dir:  path.Join(defs.RamDisk, strconv.Itoa(int(uid))),
-			Ftar: "todo...",
-			W:    x.conf.W,
-			H:    x.conf.H,
-			FPS:  x.conf.FPS,
+
+		// todo: remove workaround below, till commented
+
+		f, err := ioutil.ReadFile("init.json")
+		if err != nil {
+			log.Println("init.json file read", err)
 		}
+		if err = json.Unmarshal(f, ij); err != nil {
+			log.Println("init.json file unmarshal", err)
+		}
+		ij.Dir = path.Join(defs.RamDisk, uuid.NewString())
+		syscall.Umask(0)
 		os.MkdirAll(ij.Dir, 0777)
+
+		/*
+			ij = &defs.InitialJson{
+				Dir:  path.Join(defs.RamDisk, strconv.Itoa(int(uid))),
+				Ftar: "todo...",
+				W:    x.conf.W,
+				H:    x.conf.H,
+				FPS:  x.conf.FPS,
+			}
+			os.MkdirAll(ij.Dir, 0777)
+		*/
 	}
 	user := NewUser(x.api, uid, x.invite, x.subscribe, x.stop, ij)
 	err := x.upgrader.Upgrade(r, user.Handler)

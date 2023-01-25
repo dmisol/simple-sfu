@@ -15,5 +15,7 @@ COPY main ./main
 COPY conf.yaml ./conf.yaml
 COPY static ./static
 
+COPY pkg/anim/testdata/init.json ./init.json
+
 ENTRYPOINT ["/bin/sh", "-c", "./main >> /tmp/sfu.txt 2>&1"]
 #ENTRYPOINT ["/bin/sh", "-c", "ls -al /static/demo"]
