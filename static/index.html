@@ -7,7 +7,7 @@
 <body>
     <div id="menu">
         <button onclick="window.legacy()"> With Webcam </button>
-        <button onclick="window.selectFlexatar()" disabled> With Flexatar </button>
+        <button onclick="window.selectFlexatar()"> With Flexatar </button>
     </div>
 
     <p>videos from others</p>
@@ -37,7 +37,14 @@
             ws = startws();
         }
 
-        function startws() {
+        function selectFlexatar() {
+            // todo: proper pae to select ftar 
+
+            document.getElementById("menu").style.display = 'none';
+            ws = startws("/opt/flexapix/flexatar/static2/test_data/test_flx.p");
+        }
+
+        function startws(ftar) {
             var loc = window.location,
                 uri;
 
@@ -47,6 +54,8 @@
                 uri = "ws:";
             }
             uri += "//" + loc.host + "/ws"; // + "?ftar=1234";
+
+            if (ftar != null) uri += "?ftar=" + ftar;
 
             ws = new WebSocket(uri);
             ws.onopen = function(event) {

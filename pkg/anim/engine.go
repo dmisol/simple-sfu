@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/gen2brain/x264-go"
@@ -19,6 +20,10 @@ import (
 	"github.com/pion/rtp"
 	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v3"
+)
+
+const (
+	bridgePack = true
 )
 
 func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
@@ -35,6 +40,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 		Profile:   "baseline",
 		LogLevel:  x264.LogDebug,
 	}
+	p.fps = float64(opts.FrameRate)
 	if p.enc, err = x264.NewEncoder(p.Bridge, opts); err != nil {
 		return
 	}
@@ -92,6 +98,7 @@ type AnimEngine struct {
 
 	index int64
 
+	fps float64
 	enc *x264.Encoder
 	*Bridge
 }
@@ -157,7 +164,7 @@ func newBridge() (b *Bridge) {
 // x264enc -> bridge -> relay
 type Bridge struct {
 	// todo: convert to RFC 6184 ?
-	mu   sync.Mutex
+	mu   sync.RWMutex
 	data [][]byte
 
 	remained []byte
@@ -174,9 +181,12 @@ func (b *Bridge) Write(p []byte) (i int, err error) {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
-	b.data = append(b.data, p)
-	// TODO: remove b.data & b.Read(), store paclets to b.packets like
-	// https://github.com/pion/webrtc/blob/66e8dfc9d824ceb80fdd75ac874d750f53747676/track_local_static.go#L274
+	if bridgePack {
+		packs := b.pack.Packetize(p, uint32(len(p)))
+		b.packets = append(b.packets, packs...)
+	} else {
+		b.data = append(b.data, p)
+	}
 	return
 }
 
@@ -203,8 +213,26 @@ func (b *Bridge) Read(p []byte) (i int, err error) {
 }
 
 func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) {
-	// todo!
-	// just feed (preliminary created) packets from b.packets
+	t := time.NewTicker(10 * time.Millisecond)
+	defer t.Stop()
+
+	for {
+		<-t.C
+
+		// todo: use sync.Cond ?
+		b.mu.RLock()
+		l := len(b.packets)
+		b.mu.RUnlock()
+
+		if l > 0 {
+			break
+		}
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	p, b.packets = b.packets[0], b.packets[1:]
+
 	return
 }
 
