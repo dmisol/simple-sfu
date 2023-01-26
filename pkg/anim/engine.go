@@ -74,13 +74,19 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 				return
 			default:
 				b := make([]byte, 1024)
-				_, err := p.conn.Read(b)
+				i, err := p.conn.Read(b)
 				if err != nil {
 					p.Println("sock rd", err)
 					return
 				}
-				names := strings.Split(string(b), "\n")
+				//log.Println("raw:", string(b[:i]))
+				names := strings.Split(string(b[:i]), "\n")
+				//log.Println("names:", names)
 				for _, name := range names {
+					if len(name) < 4 {
+						break
+					}
+					//log.Println("name:", name, "len:", len(name), "index:", idx)
 					if err = p.procImage(name); err != nil {
 						p.Println("h264 encoding", name, err)
 						return
