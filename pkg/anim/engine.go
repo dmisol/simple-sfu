@@ -1,6 +1,7 @@
 package anim
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -73,21 +74,34 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 				return
 			default:
 				b := make([]byte, 1024)
-				i, err := p.conn.Read(b)
+				_, err := p.conn.Read(b)
 				if err != nil {
 					p.Println("sock rd", err)
 					return
 				}
-				name := string(b[:i])
-				name = strings.TrimSuffix(name, "\n")
-				if err = p.procImage(name); err != nil {
-					p.Println("h264 encoding", name, err)
-					return
+				names := strings.Split(string(b), "\n")
+				for _, name := range names {
+					if err = p.procImage(name); err != nil {
+						p.Println("h264 encoding", name, err)
+						return
+					}
+					if cntr == 0 {
+						go f()
+					}
+					cntr++
 				}
-				if cntr == 0 {
-					go f()
-				}
-				cntr++
+				/*
+					name := string(b[:i])
+					name = strings.TrimSuffix(name, "\n")
+					if err = p.procImage(name); err != nil {
+						p.Println("h264 encoding", name, err)
+						return
+					}
+					if cntr == 0 {
+						go f()
+					}
+					cntr++
+				*/
 			}
 		}
 	}()
@@ -136,10 +150,12 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 	i = len(pcm)
 
 	// send name to socket
-	// p.Println("sending")
-	if _, err = p.conn.Write([]byte(name + "\n")); err != nil {
-		p.Println("snd", err)
+
+	w := bufio.NewWriter(p.conn)
+	if _, err = w.WriteString(name + "\n"); err != nil {
+		return
 	}
+	w.Flush()
 
 	return
 }
