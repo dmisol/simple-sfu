@@ -41,7 +41,7 @@ func (a *AudioProc) Enable() {
 
 func (a *AudioProc) ReadRTP() (p *rtp.Packet, xx interceptor.Attributes, err error) {
 	log.Println("ReadtRTP(delayed audio)")
-	defer log.Println("ReadtRTP(delayed audio)")
+	defer log.Println("ReadtRTP(delayed audio) done")
 
 	// todo: use sync.Cond
 	for {
