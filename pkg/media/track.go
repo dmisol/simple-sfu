@@ -8,7 +8,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func NewTrackTeplicator() (tr *TrackReplicator) {
+func NewTrackReplicator() (tr *TrackReplicator) {
 	tr = &TrackReplicator{
 		tracks: make(map[int64]*webrtc.TrackLocalStaticRTP),
 	}

@@ -24,7 +24,7 @@ type MediaCloner struct {
 }
 
 func (r *MediaCloner) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-	tr := NewTrackTeplicator()
+	tr := NewTrackReplicator()
 
 	r.mu.Lock()
 	defer r.mu.Unlock()

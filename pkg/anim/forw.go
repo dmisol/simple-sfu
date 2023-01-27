@@ -52,6 +52,7 @@ func (anim *MediaAnimator) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTP
 }
 
 func (anim *MediaAnimator) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
+	anim.Println("adding track", id, t.Kind().String())
 	anim.mu.Lock()
 	defer anim.mu.Unlock()
 
@@ -75,11 +76,11 @@ func (anim *MediaAnimator) onEncodedVideo() {
 	anim.mu.Lock()
 	defer anim.mu.Unlock()
 
-	tr := media.NewTrackTeplicator()
+	tr := media.NewTrackReplicator()
 	go tr.Run(anim.ap, anim.stop)
 	anim.a = tr
 
-	tr = media.NewTrackTeplicator()
+	tr = media.NewTrackReplicator()
 	go tr.Run(anim.ae, anim.stop)
 	anim.v = tr
 

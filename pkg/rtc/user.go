@@ -73,6 +73,8 @@ func (u *User) Invite(id int64) {
 }
 
 func (u *User) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
+	u.Println("connecting subscribers", id, t.Kind().String())
+
 	u.mu.Lock()
 	defer u.mu.Unlock()
 
