@@ -242,6 +242,9 @@ func (b *Bridge) Read(p []byte) (i int, err error) {
 }
 
 func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) {
+	log.Println("ReadtRTP(ftar video)")
+	defer log.Println("ReadtRTP(ftar video)")
+
 	t := time.NewTicker(10 * time.Millisecond)
 	defer t.Stop()
 

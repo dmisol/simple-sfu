@@ -40,6 +40,9 @@ func (a *AudioProc) Enable() {
 }
 
 func (a *AudioProc) ReadRTP() (p *rtp.Packet, xx interceptor.Attributes, err error) {
+	log.Println("ReadtRTP(delayed audio)")
+	defer log.Println("ReadtRTP(delayed audio)")
+
 	// todo: use sync.Cond
 	for {
 		if x := atomic.LoadInt64(&a.sinceLast); x > 0 {
