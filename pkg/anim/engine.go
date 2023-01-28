@@ -8,18 +8,18 @@ import (
 	"image"
 	_ "image/jpeg"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
-	"github.com/gen2brain/x264-go"
 	"github.com/pion/interceptor"
+	"github.com/pion/mediadevices"
+	"github.com/pion/mediadevices/pkg/codec/x264"
 	"github.com/pion/rtp"
-	"github.com/pion/rtp/codecs"
 	"github.com/pion/webrtc/v3"
 )
 
@@ -27,26 +27,17 @@ const (
 	bridgePack          = true
 	maxReadRtpAttempts  = 500 // *10ms = 5 sec
 	maxFifoVideoPackets = 500 // several seconds, depending on the daya being tx'd _
+	imgsInChan          = 50
 )
+
+// TODO: see pion/mediadevices/NewVideoTrack
 
 func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
 
 	// create structure
 	p = &AnimEngine{dir: ij.Dir}
 	p.Bridge = newBridge()
-	opts := &x264.Options{
-		Width:     ij.W,
-		Height:    ij.H,
-		FrameRate: ij.FPS,
-		Tune:      "zerolatency",
-		Preset:    "veryfast",
-		Profile:   "baseline",
-		LogLevel:  x264.LogDebug,
-	}
-	p.fps = float64(opts.FrameRate)
-	if p.enc, err = x264.NewEncoder(p.Bridge, opts); err != nil {
-		return
-	}
+	p.imgs = make(chan image.Image, imgsInChan)
 
 	// connect to port
 	if p.conn, err = net.Dial("tcp", addr); err != nil {
@@ -120,8 +111,7 @@ type AnimEngine struct {
 
 	index int64
 
-	fps float64
-	enc *x264.Encoder
+	imgs chan image.Image
 	*Bridge
 }
 
@@ -135,8 +125,9 @@ func (p *AnimEngine) procImage(name string) (err error) {
 	if img, _, err = image.Decode(r); err != nil {
 		return
 	}
+
 	// conv data to h264 and Write() to *bridge
-	err = p.enc.Encode(img)
+	p.imgs <- img
 	return
 }
 
@@ -167,7 +158,6 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 }
 
 func (p *AnimEngine) Close() (err error) {
-	p.enc.Close()
 	return
 }
 
@@ -176,11 +166,30 @@ func (p *AnimEngine) Println(i ...interface{}) {
 }
 
 func newBridge() (b *Bridge) {
-	b = &Bridge{}
+	imgs := make(chan image.Image, 50)
+	b = &Bridge{
+		vs:   &videoSource{imgs: imgs},
+		Imgs: imgs,
+	}
 
-	payloader := &codecs.H264Payloader{}
-	b.seq = rtp.NewRandomSequencer()
-	b.pack = rtp.NewPacketizer(defs.MTU, defs.PtVideo, 0, payloader, b.seq, defs.ClkVideo)
+	x264Params, err := x264.NewParams()
+	if err != nil {
+		log.Println("x264Params", err)
+	}
+	x264Params.Preset = x264.PresetMedium
+	x264Params.BitRate = 1_000_000 // 1mbps
+
+	codecSelector := mediadevices.NewCodecSelector(
+		mediadevices.WithVideoEncoders(&x264Params),
+	)
+
+	vt := mediadevices.NewVideoTrack(b.vs, codecSelector)
+	rr, err := vt.NewRTPReader(x264Params.RTPCodec().MimeType, rand.Uint32(), 1000)
+	if err != nil {
+		log.Println("NerwRtpReader", err)
+		return
+	}
+	b.rr = rr
 	return
 }
 
@@ -188,90 +197,35 @@ func newBridge() (b *Bridge) {
 // x264enc -> bridge -> relay
 type Bridge struct {
 	// todo: convert to RFC 6184 ?
-	mu   sync.RWMutex
-	data [][]byte
+	mu   sync.Mutex
+	pkts []*rtp.Packet
 
-	remained []byte
-
-	// todo..
-	pack    rtp.Packetizer
-	seq     rtp.Sequencer
-	packets []*rtp.Packet
-}
-
-func (b *Bridge) Write(p []byte) (i int, err error) {
-	i = len(p)
-
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if bridgePack {
-		if len(b.packets) > maxFifoVideoPackets {
-			err = fmt.Errorf("video fifo exceeds limit")
-			return
-		}
-
-		packs := b.pack.Packetize(p, uint32(len(p)))
-		b.packets = append(b.packets, packs...)
-	} else {
-		b.data = append(b.data, p)
-	}
-	return
-}
-
-func (b *Bridge) Read(p []byte) (i int, err error) {
-	b.mu.Lock()
-	defer b.mu.Unlock()
-
-	if len(b.remained) > 0 {
-		i = copy(p, b.remained)
-		b.remained = b.remained[:i]
-		return
-	}
-
-	if len(b.data) == 0 {
-		return
-	}
-
-	b.remained = b.data[0]
-	b.data = b.data[1:]
-
-	i = copy(p, b.remained)
-	b.remained = b.remained[:i]
-	return
+	Imgs chan image.Image
+	vs   mediadevices.VideoSource
+	rr   mediadevices.RTPReadCloser
 }
 
 func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) {
-	log.Println("ReadtRTP(ftar video)")
-	defer log.Println("ReadtRTP(ftar video) done")
+	b.mu.Lock()
+	defer b.mu.Unlock()
 
-	t := time.NewTicker(10 * time.Millisecond)
-	defer t.Stop()
-
-	cntr := 0
+	if len(b.pkts) > 0 {
+		p, b.pkts = b.pkts[0], b.pkts[1:]
+		return
+	}
 	for {
-		<-t.C
-
-		// todo: use sync.Cond ?
-		b.mu.RLock()
-		l := len(b.packets)
-		b.mu.RUnlock()
-
-		if l > 0 {
-			break
+		pkts, _, e := b.rr.Read()
+		err = e
+		if err != nil {
+			log.Println("mediadevices.Read()", err)
+			return
 		}
-
-		cntr++
-		if cntr > maxReadRtpAttempts {
-			err = fmt.Errorf("waiting too long")
+		if len(pkts) > 0 {
+			p, b.pkts = pkts[0], pkts[1:]
+			return
 		}
 	}
 
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	p, b.packets = b.packets[0], b.packets[1:]
-
-	return
 }
 
 func (b *Bridge) Kind() (t webrtc.RTPCodecType) {
@@ -279,3 +233,17 @@ func (b *Bridge) Kind() (t webrtc.RTPCodecType) {
 }
 
 func (b *Bridge) Close() (err error) { return }
+
+type videoSource struct {
+	imgs chan image.Image
+}
+
+func (vs *videoSource) Close() (err error) { return }
+
+func (vs *videoSource) ID() (id string) { return }
+
+func (vs *videoSource) Read() (img image.Image, release func(), err error) {
+	release = func() {}
+	img = <-vs.imgs
+	return
+}
