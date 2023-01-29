@@ -37,12 +37,14 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 	// create structure
 	p = &AnimEngine{dir: ij.Dir}
 	p.Bridge = newBridge()
-	p.imgs = make(chan image.Image, imgsInChan)
+	p.Println("bridge ok")
 
 	// connect to port
 	if p.conn, err = net.Dial("tcp", addr); err != nil {
+		p.Println("dial", err)
 		return
 	}
+	p.Println("socket connected")
 
 	// send initial json
 	var b []byte
@@ -54,6 +56,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 	}
 
 	// start reading images
+	p.Println("start reading images")
 	go func() {
 		defer p.conn.Close()
 
@@ -77,7 +80,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 					if len(name) < 4 {
 						break
 					}
-					//log.Println("name:", name, "len:", len(name), "index:", idx)
+					log.Println("name:", name, "len:", len(name))
 					if err = p.procImage(name); err != nil {
 						p.Println("h264 encoding", name, err)
 						return
@@ -111,7 +114,6 @@ type AnimEngine struct {
 
 	index int64
 
-	imgs chan image.Image
 	*Bridge
 }
 
@@ -127,7 +129,7 @@ func (p *AnimEngine) procImage(name string) (err error) {
 	}
 
 	// conv data to h264 and Write() to *bridge
-	p.imgs <- img
+	p.Bridge.Imgs <- img
 	return
 }
 
@@ -139,7 +141,7 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 		return
 	}
 	name := fmt.Sprintf("%s/%d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
-	// p.Println("writing", name, len(pcm))
+	p.Println("writing", name, len(pcm))
 	if err = os.WriteFile(name, pcm, 0666); err != nil {
 		p.Println("wr", err)
 		return
@@ -171,6 +173,9 @@ func newBridge() (b *Bridge) {
 		vs:   &videoSource{imgs: imgs},
 		Imgs: imgs,
 	}
+	b.Println("starting")
+	defer b.Println("started")
+
 
 	x264Params, err := x264.NewParams()
 	if err != nil {
@@ -178,15 +183,20 @@ func newBridge() (b *Bridge) {
 	}
 	x264Params.Preset = x264.PresetMedium
 	x264Params.BitRate = 1_000_000 // 1mbps
+	b.Println("x264Params")
+
 
 	codecSelector := mediadevices.NewCodecSelector(
 		mediadevices.WithVideoEncoders(&x264Params),
 	)
+	b.Println("codecSelector")
 
 	vt := mediadevices.NewVideoTrack(b.vs, codecSelector)
+	b.Println("videoTrack")
+
 	rr, err := vt.NewRTPReader(x264Params.RTPCodec().MimeType, rand.Uint32(), 1000)
 	if err != nil {
-		log.Println("NerwRtpReader", err)
+		b.Println("NerwRtpReader", err)
 		return
 	}
 	b.rr = rr
@@ -233,6 +243,10 @@ func (b *Bridge) Kind() (t webrtc.RTPCodecType) {
 }
 
 func (b *Bridge) Close() (err error) { return }
+
+func (b *Bridge) Println(i ...interface{}) {
+	log.Println("br", i)
+}
 
 type videoSource struct {
 	imgs chan image.Image
