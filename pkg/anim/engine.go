@@ -178,28 +178,23 @@ func newBridge() (b *Bridge) {
 	b.Println("starting")
 	defer b.Println("started")
 
-	x264Params, err := x264.NewParams()
+	var err error
+	b.x264Params, err = x264.NewParams()
 	if err != nil {
 		log.Println("x264Params", err)
 	}
-	x264Params.Preset = x264.PresetMedium
-	x264Params.BitRate = 1_000_000 // 1mbps
+	b.x264Params.Preset = x264.PresetMedium
+	b.x264Params.BitRate = 1_000_000 // 1mbps
 	b.Println("x264Params")
 
 	codecSelector := mediadevices.NewCodecSelector(
-		mediadevices.WithVideoEncoders(&x264Params),
+		mediadevices.WithVideoEncoders(&b.x264Params),
 	)
 	b.Println("codecSelector")
 
-	vt := mediadevices.NewVideoTrack(b.vs, codecSelector)
+	b.vt = mediadevices.NewVideoTrack(b.vs, codecSelector)
 	b.Println("videoTrack")
 
-	rr, err := vt.NewRTPReader(x264Params.RTPCodec().MimeType, rand.Uint32(), 1000)
-	if err != nil {
-		b.Println("NerwRtpReader", err)
-		return
-	}
-	b.rr = rr
 	return
 }
 
@@ -211,8 +206,12 @@ type Bridge struct {
 	pkts []*rtp.Packet
 
 	Imgs chan image.Image
-	vs   mediadevices.VideoSource
-	rr   mediadevices.RTPReadCloser
+
+	x264Params x264.Params
+	vs         mediadevices.VideoSource
+	vt         mediadevices.Track
+	rr         mediadevices.RTPReadCloser
+	started    bool
 }
 
 func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) {
@@ -222,6 +221,18 @@ func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) 
 	if len(b.pkts) > 0 {
 		p, b.pkts = b.pkts[0], b.pkts[1:]
 		return
+	}
+	if !b.started {
+		b.Println("starting mediadevices.RTPReadCloser")
+
+		b.rr, err = b.vt.NewRTPReader(b.x264Params.RTPCodec().MimeType, rand.Uint32(), 1000)
+		if err != nil {
+			b.Println("NewRtpReader", err)
+			return
+		}
+		b.started = true
+
+		b.Println("mediadevices.RTPReadCloser ok")
 	}
 	for {
 		pkts, _, e := b.rr.Read()
