@@ -16,9 +16,11 @@ import (
 	"sync/atomic"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
+	"github.com/google/uuid"
 	"github.com/pion/interceptor"
 	"github.com/pion/mediadevices"
 	"github.com/pion/mediadevices/pkg/codec/x264"
+	_ "github.com/pion/mediadevices/pkg/driver/camera"
 	"github.com/pion/rtp"
 	"github.com/pion/webrtc/v3"
 )
@@ -176,7 +178,6 @@ func newBridge() (b *Bridge) {
 	b.Println("starting")
 	defer b.Println("started")
 
-
 	x264Params, err := x264.NewParams()
 	if err != nil {
 		log.Println("x264Params", err)
@@ -184,7 +185,6 @@ func newBridge() (b *Bridge) {
 	x264Params.Preset = x264.PresetMedium
 	x264Params.BitRate = 1_000_000 // 1mbps
 	b.Println("x264Params")
-
 
 	codecSelector := mediadevices.NewCodecSelector(
 		mediadevices.WithVideoEncoders(&x264Params),
@@ -252,12 +252,26 @@ type videoSource struct {
 	imgs chan image.Image
 }
 
-func (vs *videoSource) Close() (err error) { return }
+func (vs *videoSource) Close() (err error) {
+	vs.Println("close")
+	return
+}
 
-func (vs *videoSource) ID() (id string) { return }
+func (vs *videoSource) ID() (id string) {
+	vs.Println("id")
+	id = uuid.NewString()
+	return
+}
 
 func (vs *videoSource) Read() (img image.Image, release func(), err error) {
+	vs.Println("reading")
+	defer vs.Println("reading done")
+
 	release = func() {}
 	img = <-vs.imgs
 	return
+}
+
+func (vs *videoSource) Println(i ...interface{}) {
+	log.Println("vs", i)
 }
