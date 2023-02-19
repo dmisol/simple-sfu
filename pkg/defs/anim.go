@@ -1,9 +1,29 @@
 package defs
 
+import "github.com/pion/rtp"
+
 const (
-	Addr    = ":50000"
-	RamDisk = "/tmp"	//"/run/tmp"
+	Addr    = "/tmp/sfu.sock"
+	RamDisk = "/tmp" //"/run/tmp"
 )
+
+const (
+	AnimTypeName = "file"
+	AnimTypeMsg  = "message"
+
+	AnimPayloadReady = "ready"
+)
+
+// marshalled structures (jsons) separated with \n (to recover in case of failures)
+type AnimData struct {
+	Type    string `json:"type"`
+	Payload string `json:"payload"`
+}
+
+type RtpStorage struct {
+	Ts int64
+	*rtp.Packet
+}
 
 type InitialJson struct {
 	Dir  string      `json:"dir"`
@@ -48,4 +68,16 @@ type Viseme struct {
 	Value    string `json:"value"`
 	end      int
 	Duration int `json:"duration"` // ms
+}
+
+const (
+	TypeFile = "file"
+	TypeMsg  = "msg"
+)
+
+type AminPacket struct {
+	Ts      int64  `json:"ts"` // in ms
+	Seq     int64  `json:"seq"`
+	Type    string `json:"type"`
+	Payload string `json:"payload"`
 }

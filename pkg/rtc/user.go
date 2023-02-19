@@ -38,7 +38,7 @@ func NewUser(api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo fu
 type User struct {
 	mu   sync.Mutex
 	Id   int64
-	conn *websocket.Conn // a way to stop everything
+	conn *websocket.Conn
 
 	inviteOthers func(int64)
 	subscribeTo  func(p int64, s int64, t *webrtc.TrackLocalStaticRTP)
@@ -51,7 +51,8 @@ type User struct {
 	publisher int32
 	initJson  *defs.InitialJson
 
-	pc []*webrtc.PeerConnection
+	pc   []*webrtc.PeerConnection
+	done int32
 }
 
 func (u *User) Publisher() bool {
@@ -104,7 +105,10 @@ func (u *User) Handler(conn *websocket.Conn) {
 	defer u.stop(u.Id)
 
 	u.conn = conn
-	defer u.conn.Close()
+	defer func() {
+		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
+	}()
 
 	go u.wrHandler()
 
@@ -124,7 +128,10 @@ func (u *User) Handler(conn *websocket.Conn) {
 }
 
 func (u *User) wrHandler() {
-	defer u.conn.Close()
+	defer func() {
+		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
+	}()
 
 	for {
 		b := <-u.wsChan
@@ -197,6 +204,7 @@ func (u *User) negotiatePublisher(data []byte) {
 	if _, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeAudio); err != nil {
 		u.Println("pub add audio trx", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 
@@ -238,18 +246,22 @@ func (u *User) negotiatePublisher(data []byte) {
 			atomic.AddInt32(&u.publisher, 1)
 		}
 
-		go func() {
-			ticker := time.NewTicker(time.Second * 2)
-			defer ticker.Stop()
+		if t.Kind() == webrtc.RTPCodecTypeVideo {
+			go func() {
+				ticker := time.NewTicker(time.Second)
+				defer ticker.Stop()
 
-			for {
-				<-ticker.C
-				if err := pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(t.SSRC())}}); err != nil {
-					u.Println("failed to write rtcp", t.Kind(), err)
-					return
+				for {
+					<-ticker.C
+					if err := pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(t.SSRC())}}); err != nil {
+						u.Println("failed to write rtcp", t.Kind(), err)
+						return
+					}
+					u.Println("pli")
 				}
-			}
-		}()
+			}()
+
+		}
 		u.media.Replicate(t, receiver)
 	})
 

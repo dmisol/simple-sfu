@@ -8,12 +8,10 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
-	"io"
 	"log"
 
+	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/pion/rtp"
-
-	"github.com/zaf/resample"
 )
 
 const (
@@ -28,20 +26,23 @@ var (
 	ErrDecoding = errors.New("error decoding opus")
 )
 
-func newConv(dest io.Writer) (c *conv) {
+func newConv(dest defs.TsWriter) (c *conv) {
 	c = &conv{
 		dest: dest,
 	}
 
-	if noResample {
-		c.Println("ATTN! resampling blocked!")
-		c.res = c.dest
-	} else {
-		var err error
-		if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.F32, resample.LowQ); err != nil { // I16
-			c.Println("resampler creating", err)
+	c.res = c.dest
+	/*
+		if noResample {
+			c.Println("ATTN! resampling blocked!")
+			c.res = c.dest
+		} else {
+			var err error
+			if c.res, err = resample.New(c.dest, float64(opusRate), float64(voskRate), audiochan, resample.F32, resample.LowQ); err != nil { // I16
+				c.Println("resampler creating", err)
+			}
 		}
-	}
+	*/
 
 	e := C.int(0)
 	er := &e
@@ -51,9 +52,9 @@ func newConv(dest io.Writer) (c *conv) {
 }
 
 type conv struct {
-	dest io.Writer
+	dest defs.TsWriter
 	dec  *C.OpusDecoder
-	res  io.Writer //*resample.Resampler
+	res  defs.TsWriter //io.Writer //*resample.Resampler
 	b    []byte
 }
 
@@ -62,11 +63,11 @@ func (c *conv) Close() error {
 	return nil
 }
 
-func (c *conv) AppendRTP(rtp *rtp.Packet) (err error) {
-	return c.AppendOpusPayload(rtp.Payload)
+func (c *conv) AppendRTP(rtp *rtp.Packet, ts int64) (err error) {
+	return c.AppendOpusPayload(rtp.Payload, ts)
 }
 
-func (c *conv) AppendOpusPayload(pl []byte) (err error) {
+func (c *conv) AppendOpusPayload(pl []byte, ts int64) (err error) {
 	samplesPerFrame := int(C.opus_packet_get_samples_per_frame((*C.uchar)(&pl[0]), C.int(48000)))
 	pcm := make([]int16, samplesPerFrame)
 	samples := C.opus_decode(c.dec, (*C.uchar)(&pl[0]), C.opus_int32(len(pl)), (*C.opus_int16)(&pcm[0]), C.int(cap(pcm)/audiochan), 0)
@@ -80,7 +81,7 @@ func (c *conv) AppendOpusPayload(pl []byte) (err error) {
 	for _, v := range pcm {
 		binary.Write(pcmBuffer, binary.LittleEndian, v)
 	}
-	err = c.appendBytes(pcmBuffer.Bytes())
+	err = c.appendBytes(pcmBuffer.Bytes(), ts)
 
 	/*
 		// nn model is trained float32
@@ -95,9 +96,9 @@ func (c *conv) AppendOpusPayload(pl []byte) (err error) {
 	return
 }
 
-func (c *conv) appendBytes(b []byte) (err error) {
+func (c *conv) appendBytes(b []byte, ts int64) (err error) {
 	// c.Println("decoded bytes from opus", len(b))
-	if _, err = c.res.Write(b); err != nil {
+	if _, err = c.res.Write(b, ts); err != nil {
 		c.Println("resampling", err)
 	}
 	return

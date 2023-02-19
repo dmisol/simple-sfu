@@ -4,7 +4,6 @@ go 1.17
 
 require (
 	github.com/fasthttp/websocket v1.5.0
-	github.com/gen2brain/x264-go v0.2.1
 	github.com/google/uuid v1.3.0
 	github.com/pion/interceptor v0.1.12
 	github.com/pion/mediadevices v0.4.0
@@ -19,8 +18,7 @@ require (
 
 require (
 	github.com/andybalholm/brotli v1.0.4 // indirect
-	github.com/gen2brain/x264-go/x264c v0.0.0-20220828141959-ddbf4cbb9814 // indirect
-	github.com/gen2brain/x264-go/yuv v0.0.0-20220622130850-9f6285ee8073 // indirect
+	github.com/blackjack/webcam v0.0.0-20220329180758-ba064708e165 // indirect
 	github.com/klauspost/compress v1.14.1 // indirect
 	github.com/pion/datachannel v1.5.5 // indirect
 	github.com/pion/dtls/v2 v2.1.5 // indirect

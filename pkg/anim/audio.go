@@ -2,7 +2,6 @@ package anim
 
 import (
 	"errors"
-	"io"
 	"log"
 	"sync"
 	"sync/atomic"
@@ -17,26 +16,28 @@ import (
 type AudioProc struct {
 	mu sync.Mutex
 
-	fifo []*rtp.Packet
+	fifo []*defs.RtpStorage //*rtp.Packet
 	*conv
-	enabled int64
+	playing    int64
+	canprocess *int32
 
 	sinceLast int64
 	stop      chan bool
 }
 
-func NewAudioProc(remote defs.TrackRTPReader /**webrtc.TrackRemote*/, anim io.Writer) (a *AudioProc) {
+func NewAudioProc(remote defs.TrackRTPReader /**webrtc.TrackRemote*/, anim defs.TsWriter, canprocess *int32) (a *AudioProc) {
 	a = &AudioProc{
-		stop: make(chan bool),
-		conv: newConv(anim),
+		stop:       make(chan bool),
+		conv:       newConv(anim),
+		canprocess: canprocess,
 	}
 	go a.run(remote)
 	return
 }
 
-// Enable() is called when the first video appeared, so audio should by sync'ed
-func (a *AudioProc) Enable() {
-	atomic.StoreInt64(&a.enabled, 1)
+// Play() is called when the first video appeared, so audio should by sync'ed
+func (a *AudioProc) Play() {
+	atomic.StoreInt64(&a.playing, 1)
 }
 
 func (a *AudioProc) ReadRTP() (p *rtp.Packet, xx interceptor.Attributes, err error) {
@@ -60,7 +61,11 @@ func (a *AudioProc) ReadRTP() (p *rtp.Packet, xx interceptor.Attributes, err err
 			return
 		}
 
-		p, a.fifo = a.fifo[0], a.fifo[1:]
+		var ps *defs.RtpStorage
+		ps, a.fifo = a.fifo[0], a.fifo[1:]
+
+		// ToDo: compute delay
+		p = ps.Packet
 	}()
 	atomic.AddInt64(&a.sinceLast, -1)
 
@@ -88,13 +93,23 @@ func (a *AudioProc) run(remote defs.TrackRTPReader) { //(remote *webrtc.TrackRem
 				a.Println("rtp rd", err)
 				return
 			}
-			func() {
-				a.mu.Lock()
-				defer a.mu.Unlock()
-				a.fifo = append(a.fifo, p)
-			}()
-			atomic.AddInt64(&a.sinceLast, atomic.LoadInt64(&a.enabled))
-			a.conv.AppendRTP(p)
+
+			if atomic.LoadInt32(a.canprocess) == 1 {
+				ts := time.Now().UnixMilli()
+				func(ts int64) {
+					// TODO: in FIFO replace rtp with {rtp,ts}
+					a.mu.Lock()
+					defer a.mu.Unlock()
+					ps := &defs.RtpStorage{
+						Ts:     ts,
+						Packet: p,
+					}
+					a.fifo = append(a.fifo, ps)
+				}(ts)
+				atomic.AddInt64(&a.sinceLast, atomic.LoadInt64(&a.playing))
+				a.conv.AppendRTP(p, ts)
+			}
+
 		}
 	}
 }

@@ -11,9 +11,11 @@ import (
 	"math/rand"
 	"net"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"sync/atomic"
+	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/google/uuid"
@@ -30,6 +32,8 @@ const (
 	maxReadRtpAttempts  = 500 // *10ms = 5 sec
 	maxFifoVideoPackets = 500 // several seconds, depending on the daya being tx'd _
 	imgsInChan          = 50
+
+	audioTest = true
 )
 
 // TODO: see pion/mediadevices/NewVideoTrack
@@ -41,72 +45,90 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 	p.Bridge = newBridge()
 	p.Println("bridge ok")
 
-	// connect to port
-	if p.conn, err = net.Dial("tcp", addr); err != nil {
-		p.Println("dial", err)
-		return
-	}
-	p.Println("socket connected")
-
-	// send initial json
-	var b []byte
-	if b, err = json.Marshal(ij); err != nil {
-		return
-	}
-	if _, err = p.conn.Write(b); err != nil {
-		return
-	}
-
-	// start reading images
-	p.Println("start reading images")
-	go func() {
-		defer p.conn.Close()
-
-		cntr := uint64(0)
-		for {
-			select {
-			case <-ctx.Done():
-				p.Println("killex (ctx)")
-				return
-			default:
-				b := make([]byte, 1024)
-				i, err := p.conn.Read(b)
-				if err != nil {
-					p.Println("sock rd", err)
-					return
-				}
-				//log.Println("raw:", string(b[:i]))
-				names := strings.Split(string(b[:i]), "\n")
-				//log.Println("names:", names)
-				for _, name := range names {
-					if len(name) < 4 {
-						break
-					}
-					log.Println("name:", name, "len:", len(name))
-					if err = p.procImage(name); err != nil {
-						p.Println("h264 encoding", name, err)
-						return
-					}
-					if cntr == 0 {
-						go f()
-					}
-					cntr++
-				}
-				/*
-					name := string(b[:i])
-					name = strings.TrimSuffix(name, "\n")
-					if err = p.procImage(name); err != nil {
-						p.Println("h264 encoding", name, err)
-						return
-					}
-					if cntr == 0 {
-						go f()
-					}
-					cntr++
-				*/
-			}
+	if !audioTest {
+		// connect to port
+		if p.conn, err = net.Dial("unix", addr); err != nil {
+			p.Println("dial", err)
+			return
 		}
-	}()
+		p.Println("socket connected")
+
+		// send initial json
+		var b []byte
+		if b, err = json.Marshal(ij); err != nil {
+			return
+		}
+		if _, err = p.conn.Write(b); err != nil {
+			return
+		}
+
+		// start reading images
+		p.Println("start reading images")
+		go func() {
+			defer p.conn.Close()
+
+			cntr := uint64(0)
+			for {
+				select {
+				case <-ctx.Done():
+					p.Println("killex (ctx)")
+					return
+				default:
+					b := make([]byte, 1024)
+					i, err := p.conn.Read(b)
+					if err != nil {
+						p.Println("sock rd", err)
+						return
+					}
+
+					//log.Println("raw:", string(b[:i]))
+					jsons := strings.Split(string(b[:i]), "\n")
+
+					//log.Println("names:", names)
+					for _, js := range jsons {
+						if len(js) < 4 {
+							break
+						}
+
+						ap := &defs.AminPacket{}
+						if err = json.Unmarshal([]byte(js), ap); err != nil {
+							p.Println("unmarshal socket msg", err)
+							return
+						}
+
+						switch ap.Type {
+						case defs.TypeFile:
+							name := ap.Payload
+							log.Println("name:", name)
+							if err = p.procImage(name); err != nil {
+								p.Println("h264 encoding", name, err)
+								return
+							}
+							if cntr == 0 {
+								go f()
+							}
+							cntr++
+						case defs.TypeMsg:
+							if ap.Payload == defs.AnimPayloadReady {
+								// trigger audio
+								atomic.StoreInt32(&p.CanProcess, 1)
+								continue
+							} else {
+								// TODO: log separately
+								p.Println("ANIM ERR", ap.Payload)
+								continue
+							}
+						default:
+							p.Println("err unexpected type", js)
+						}
+
+					}
+				}
+			}
+		}()
+
+	}
+
 	return
 }
 
@@ -114,7 +136,9 @@ type AnimEngine struct {
 	conn net.Conn
 	dir  string
 
-	index int64
+	index        int64
+	rxseq, txseq int64
+	CanProcess   int32
 
 	*Bridge
 }
@@ -142,21 +166,46 @@ func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
 		p.Println("mkdirall", err)
 		return
 	}
-	name := fmt.Sprintf("%s/%d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
-	p.Println("writing", name, len(pcm))
-	if err = os.WriteFile(name, pcm, 0666); err != nil {
-		p.Println("wr", err)
-		return
-	}
-	i = len(pcm)
 
-	// send name to socket
+	ts := time.Now().UnixMilli()
 
-	w := bufio.NewWriter(p.conn)
-	if _, err = w.WriteString(name + "\n"); err != nil {
-		return
+	if !audioTest {
+		name := fmt.Sprintf("%s/%08d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
+		p.Println("writing", name, len(pcm))
+		if err = os.WriteFile(name, pcm, 0666); err != nil {
+			p.Println("wr", err)
+			return
+		}
+		i = len(pcm)
+
+		// send name to socket
+		w := bufio.NewWriter(p.conn)
+		ap := &defs.AminPacket{
+			Ts:      ts,
+			Seq:     atomic.AddInt64(&p.txseq, 1),
+			Type:    defs.TypeFile,
+			Payload: name,
+		}
+		var b []byte
+		if b, err = json.Marshal(ap); err != nil {
+			p.Println("animpacket nmarshal", err)
+			return
+		}
+		if _, err = w.WriteString(string(b) + "\n"); err != nil {
+			return
+		}
+		w.Flush()
+	} else {
+		name := path.Join(p.dir, "audio.pcm")
+		f, fe := os.OpenFile(name, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if fe != nil {
+			err = fe
+			p.Println("wr", err)
+			return
+		}
+		defer f.Close()
+		_, err = f.Write(pcm)
 	}
-	w.Flush()
 
 	return
 }
