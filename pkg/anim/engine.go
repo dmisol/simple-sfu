@@ -88,10 +88,10 @@ func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *def
 						return
 					}
 
-					log.Println("raw:", string(b))
+					//log.Println("raw:", string(b))
 					jsons := strings.Split(string(b[:i]), "\n")
 
-					log.Println("jsons:", jsons)
+					//log.Println("jsons:", jsons)
 					for _, js := range jsons {
 						if len(js) < 4 {
 							break
@@ -106,7 +106,7 @@ func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *def
 						switch ap.Type {
 						case defs.TypeFile:
 							name := ap.Payload
-							p.Println("name:", name)
+							//p.Println("name:", name)
 							if err = p.procImage(name); err != nil {
 								p.Println("h264 encoding", name, err)
 								return
@@ -180,7 +180,7 @@ func (p *AnimEngine) Write(pcm []byte, ts int64) (i int, err error) {
 
 	if !audioTest {
 		name := fmt.Sprintf("%s/%08d.pcm", p.dir, atomic.AddInt64(&p.index, 1))
-		p.Println("writing", name, len(pcm))
+		//p.Println("writing", name, len(pcm))
 		if err = os.WriteFile(name, pcm, 0666); err != nil {
 			p.Println("wr", err)
 			return
@@ -333,8 +333,8 @@ func (vs *videoSource) ID() (id string) {
 }
 
 func (vs *videoSource) Read() (img image.Image, release func(), err error) {
-	vs.Println("reading")
-	defer vs.Println("reading done")
+	//vs.Println("reading")
+	//defer vs.Println("reading done")
 
 	release = func() {}
 

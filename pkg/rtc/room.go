@@ -134,8 +134,9 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 
 	ftar := string(r.QueryArgs().Peek("ftar"))
 	var ij *defs.InitialJson
+	var user *User
 	if len(ftar) != 0 {
-		log.Println("using flexatar", ftar)
+		log.Println("using flexatar", uid, ftar)
 
 		// todo: remove workaround below, till commented
 
@@ -163,8 +164,12 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 			}
 			os.MkdirAll(ij.Dir, 0777)
 		*/
+		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, ij)
+	} else {
+		log.Println("regular webrtc", uid)
+		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, nil)
 	}
-	user := NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, ij)
+
 	err := x.upgrader.Upgrade(r, user.Handler)
 	if err != nil {
 		log.Print("upgrade", err)
