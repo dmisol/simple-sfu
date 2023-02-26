@@ -38,7 +38,7 @@ const (
 
 // TODO: see pion/mediadevices/NewVideoTrack
 
-func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
+func newAnimEngine(ctx context.Context, addr string, f func(), stop func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
 
 	// create structure
 	p = &AnimEngine{dir: ij.Dir}
@@ -65,7 +65,11 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 		// start reading images
 		p.Println("start reading images")
 		go func() {
-			defer p.conn.Close()
+			defer func() {
+				p.Println("stop reading images")
+				p.conn.Close()
+				stop()
+			}()
 
 			cntr := uint64(0)
 			for {
@@ -111,6 +115,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), ij *defs.InitialJ
 						case defs.TypeMsg:
 							if ap.Payload == defs.AnimPayloadReady {
 								// trigger audio
+								p.Println("READY msg, start processing audio")
 								atomic.StoreInt32(&p.CanProcess, 1)
 								continue
 							} else {
