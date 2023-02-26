@@ -2,7 +2,6 @@ package anim
 
 import (
 	"bufio"
-	"context"
 	"encoding/json"
 	"fmt"
 	"image"
@@ -38,10 +37,13 @@ const (
 
 // TODO: see pion/mediadevices/NewVideoTrack
 
-func newAnimEngine(ctx context.Context, addr string, f func(), stop func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
+func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *defs.InitialJson) (p *AnimEngine, err error) {
 
 	// create structure
-	p = &AnimEngine{dir: ij.Dir}
+	p = &AnimEngine{
+		dir: ij.Dir,
+		uc:  uc,
+	}
 	p.Bridge = newBridge()
 	p.Println("bridge ok")
 
@@ -66,16 +68,16 @@ func newAnimEngine(ctx context.Context, addr string, f func(), stop func(), ij *
 		p.Println("start reading images")
 		go func() {
 			defer func() {
-				p.Println("stop reading images")
 				p.conn.Close()
+				uc.Close("stop reading images")
 				stop()
 			}()
 
 			cntr := uint64(0)
 			for {
 				select {
-				case <-ctx.Done():
-					p.Println("killex (ctx)")
+				case <-uc.Done():
+					p.Println("killed (ctx)")
 					return
 				default:
 					b := make([]byte, 1024)
@@ -85,10 +87,10 @@ func newAnimEngine(ctx context.Context, addr string, f func(), stop func(), ij *
 						return
 					}
 
-					//log.Println("raw:", string(b[:i]))
+					log.Println("raw:", string(b))
 					jsons := strings.Split(string(b[:i]), "\n")
 
-					//log.Println("names:", names)
+					log.Println("jsons:", jsons)
 					for _, js := range jsons {
 						if len(js) < 4 {
 							break
@@ -140,6 +142,7 @@ func newAnimEngine(ctx context.Context, addr string, f func(), stop func(), ij *
 type AnimEngine struct {
 	conn net.Conn
 	dir  string
+	uc   *defs.UserCtx
 
 	index        int64
 	rxseq, txseq int64
@@ -332,7 +335,9 @@ func (vs *videoSource) Read() (img image.Image, release func(), err error) {
 	vs.Println("reading")
 	defer vs.Println("reading done")
 
-	release = func() {}
+	//release = func() {}
+	release()
+
 	img = <-vs.imgs
 	return
 }

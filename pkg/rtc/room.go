@@ -1,6 +1,7 @@
 package rtc
 
 import (
+	"context"
 	"encoding/json"
 	"io/ioutil"
 	"log"
@@ -8,7 +9,8 @@ import (
 	"path"
 	"sync"
 	"sync/atomic"
-//	"syscall"
+
+	//	"syscall"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/fasthttp/websocket"
@@ -115,6 +117,7 @@ func (x *Room) subscribe(pub int64, sub int64, t *webrtc.TrackLocalStaticRTP) {
 }
 
 func (x *Room) stop(uid int64) {
+	//log.Println("removing user", uid)
 	x.mu.Lock()
 	defer x.mu.Unlock()
 
@@ -161,7 +164,7 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 			os.MkdirAll(ij.Dir, 0777)
 		*/
 	}
-	user := NewUser(x.api, uid, x.invite, x.subscribe, x.stop, ij)
+	user := NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, ij)
 	err := x.upgrader.Upgrade(r, user.Handler)
 	if err != nil {
 		log.Print("upgrade", err)

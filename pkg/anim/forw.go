@@ -1,7 +1,6 @@
 package anim
 
 import (
-	"context"
 	"log"
 	"sync"
 
@@ -10,7 +9,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func NewAnimator(welcome func(), stop func(), id int64, ij *defs.InitialJson) (anim *MediaAnimator) {
+func NewAnimator(uc *defs.UserCtx, welcome func(), stop func(), id int64, ij *defs.InitialJson) (anim *MediaAnimator) {
 	anim = &MediaAnimator{
 		welcome: welcome,
 		stop:    stop,
@@ -18,7 +17,7 @@ func NewAnimator(welcome func(), stop func(), id int64, ij *defs.InitialJson) (a
 	anim.Println("starting")
 	defer anim.Println("running")
 
-	v, err := newAnimEngine(context.Background(), defs.Addr, anim.onEncodedVideo, stop, ij)
+	v, err := newAnimEngine(uc, defs.Addr, anim.onEncodedVideo, stop, ij)
 	if err != nil {
 		anim.Println("anim engine", err)
 
