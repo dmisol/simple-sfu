@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 	"sync/atomic"
-	"time"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
 	"github.com/google/uuid"
@@ -170,14 +169,14 @@ func (p *AnimEngine) procImage(name string) (err error) {
 }
 
 // Write() will be called when PCM portion is ready to be sent for animation computing
-func (p *AnimEngine) Write(pcm []byte) (i int, err error) {
+func (p *AnimEngine) Write(pcm []byte, ts int64) (i int, err error) {
 	// create file
 	if err = os.MkdirAll(p.dir, 0777); err != nil {
 		p.Println("mkdirall", err)
 		return
 	}
 
-	ts := time.Now().UnixMilli()
+	//ts := time.Now().UnixMilli()
 
 	if !audioTest {
 		name := fmt.Sprintf("%s/%08d.pcm", p.dir, atomic.AddInt64(&p.index, 1))

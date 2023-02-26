@@ -48,7 +48,7 @@ func (anim *MediaAnimator) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTP
 		// this will:
 		// 1. store opus packets for re-tx-ing
 		// 2. feed encoded audio to a server
-		anim.ap = NewAudioProc(t, nil /*anim.ae*/, &anim.ae.CanProcess)
+		anim.ap = NewAudioProc(t, anim.ae, &anim.ae.CanProcess)
 		anim.Println("audio processing")
 	}
 }
