@@ -33,7 +33,7 @@ const (
 	maxFifoVideoPackets = 500 // several seconds, depending on the daya being tx'd _
 	imgsInChan          = 50
 
-	audioTest = true
+	audioTest = false
 )
 
 // TODO: see pion/mediadevices/NewVideoTrack

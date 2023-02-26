@@ -217,6 +217,7 @@ func (u *User) negotiatePublisher(data []byte) {
 			},
 			func() {
 				u.conn.Close()
+				atomic.AddInt32(&u.done, 1)
 			}, u.Id, u.initJson)
 		if u.media == nil {
 			u.Println("error: animation engine failed")
@@ -230,6 +231,7 @@ func (u *User) negotiatePublisher(data []byte) {
 			},
 			func() {
 				u.conn.Close()
+				atomic.AddInt32(&u.done, 1)
 			})
 
 		u.Println("regular sfu, negotiating h264 video as well")
@@ -237,6 +239,7 @@ func (u *User) negotiatePublisher(data []byte) {
 		if _, err = pc.AddTransceiverFromKind(webrtc.RTPCodecTypeVideo); err != nil {
 			u.Println("pub add video trx", err)
 			u.conn.Close()
+			atomic.AddInt32(&u.done, 1)
 			return
 		}
 	}
@@ -253,6 +256,10 @@ func (u *User) negotiatePublisher(data []byte) {
 
 				for {
 					<-ticker.C
+					if atomic.LoadInt32(&u.done) > 0 {
+						u.Println("stop sending PLI")
+						return
+					}
 					if err := pc.WriteRTCP([]rtcp.Packet{&rtcp.PictureLossIndication{MediaSSRC: uint32(t.SSRC())}}); err != nil {
 						u.Println("failed to write rtcp", t.Kind(), err)
 						return
@@ -271,12 +278,14 @@ func (u *User) negotiatePublisher(data []byte) {
 			connectionState == webrtc.ICEConnectionStateDisconnected {
 			u.Println("publisher ICE failed")
 			u.conn.Close()
+			atomic.AddInt32(&u.done, 1)
 		}
 	})
 
 	if err = pc.SetRemoteDescription(offer); err != nil {
 		u.Println("pub SetRemoteDescription(offer)", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 
@@ -291,11 +300,13 @@ func (u *User) negotiatePublisher(data []byte) {
 	if err != nil {
 		u.Println("pub CreateAnswer()", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	if err = pc.SetLocalDescription(answer); err != nil {
 		u.Println("pub SetLocalDescription(answer)", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 
@@ -319,6 +330,7 @@ func (u *User) negotiatePublisher(data []byte) {
 	if err != nil {
 		u.Println("pub marshal resp", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	u.wsChan <- b
@@ -338,6 +350,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	if err := json.Unmarshal(data, &offer); err != nil {
 		u.Println("sub offer Unmarshal()", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 
@@ -345,6 +358,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	if err != nil {
 		u.Println("sub peerconn", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 
@@ -352,12 +366,14 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	if err != nil {
 		u.Println("sub video track", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	rtpSenderV, err := pc.AddTrack(videoTrack)
 	if err != nil {
 		u.Println("sub video track add", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	go func() {
@@ -380,6 +396,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	if err != nil {
 		u.Println("sub audio track add", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	go func() {
@@ -441,6 +458,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 	if err != nil {
 		u.Println("pub marshal resp", err)
 		u.conn.Close()
+		atomic.AddInt32(&u.done, 1)
 		return
 	}
 	u.wsChan <- b
