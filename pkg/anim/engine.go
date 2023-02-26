@@ -336,8 +336,7 @@ func (vs *videoSource) Read() (img image.Image, release func(), err error) {
 	vs.Println("reading")
 	defer vs.Println("reading done")
 
-	//release = func() {}
-	release()
+	release = func() {}
 
 	img = <-vs.imgs
 	return
