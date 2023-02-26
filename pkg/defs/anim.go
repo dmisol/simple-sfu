@@ -8,17 +8,19 @@ const (
 )
 
 const (
-	AnimTypeName = "file"
-	AnimTypeMsg  = "message"
+	TypeFile = "file"
+	TypeMsg  = "message"
 
 	AnimPayloadReady = "ready"
 )
 
 // marshalled structures (jsons) separated with \n (to recover in case of failures)
+/*
 type AnimData struct {
 	Type    string `json:"type"`
 	Payload string `json:"payload"`
 }
+*/
 
 type RtpStorage struct {
 	Ts int64
@@ -69,11 +71,6 @@ type Viseme struct {
 	end      int
 	Duration int `json:"duration"` // ms
 }
-
-const (
-	TypeFile = "file"
-	TypeMsg  = "msg"
-)
 
 type AminPacket struct {
 	Ts      int64  `json:"ts"` // in ms

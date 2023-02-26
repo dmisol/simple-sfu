@@ -60,9 +60,11 @@ func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *def
 		if b, err = json.Marshal(ij); err != nil {
 			return
 		}
+		p.Println("sending", string(b))
 		if _, err = p.conn.Write(b); err != nil {
 			return
 		}
+		p.Println("sent", string(b))
 
 		// start reading images
 		p.Println("start reading images")
@@ -105,7 +107,7 @@ func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *def
 						switch ap.Type {
 						case defs.TypeFile:
 							name := ap.Payload
-							log.Println("name:", name)
+							p.Println("name:", name)
 							if err = p.procImage(name); err != nil {
 								p.Println("h264 encoding", name, err)
 								return
