@@ -1,6 +1,6 @@
 {
     "dir": "/run/tmp",
-    "ftar": ["/opt/flexapix/flexatar/static2/test_data/test_flx.p"],
+    "ftar": ["/opt/flexapix/flexatar/static3/flx/flx_opnLeo_Emo_09_venik.p"],
 
     "width": 640,
     "height": 480,
