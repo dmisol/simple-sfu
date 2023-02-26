@@ -69,6 +69,8 @@ func newAnimEngine(uc *defs.UserCtx, addr string, f func(), stop func(), ij *def
 		p.Println("start reading images")
 		go func() {
 			defer func() {
+				os.RemoveAll(ij.Dir)
+
 				p.conn.Close()
 				uc.Close("stop reading images")
 				stop()

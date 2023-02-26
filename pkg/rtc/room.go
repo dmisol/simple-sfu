@@ -149,7 +149,7 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 			log.Println("init.json file unmarshal", err)
 		}
 		ij.Dir = path.Join(defs.RamDisk, uuid.NewString())
-		//ij.Ftar = ftar
+		ij.Ftar = ftar
 		//syscall.Umask(0)
 		err = os.MkdirAll(ij.Dir, 0777)
 		log.Println(ij.Dir, err)

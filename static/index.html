@@ -7,7 +7,8 @@
 <body>
     <div id="menu">
         <button onclick="window.legacy()"> With Webcam </button>
-        <button onclick="window.selectFlexatar()"> With Flexatar </button>
+        <button onclick="window.selectFlexatar('/opt/flexapix/flexatar/static3/flx/flx_opnLeo_Emo_01.p')"> With Flexatar #1</button>
+        <button onclick="window.selectFlexatar('/opt/flexapix/flexatar/static3/flx/flx_opnLeo_Emo_09_venik.p')"> With Flexatar #2</button>
     </div>
 
     <p>videos from others</p>
@@ -37,11 +38,11 @@
             ws = startws();
         }
 
-        function selectFlexatar() {
+        function selectFlexatar(pth) {
             // todo: proper pae to select ftar 
 
             document.getElementById("menu").style.display = 'none';
-            ws = startws("/opt/flexapix/flexatar/static2/test_data/test_flx.p");
+            ws = startws(pth);
         }
 
         function startws(ftar) {
