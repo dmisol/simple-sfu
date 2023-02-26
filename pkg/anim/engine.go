@@ -224,7 +224,7 @@ func (p *AnimEngine) Close() (err error) {
 }
 
 func (p *AnimEngine) Println(i ...interface{}) {
-	log.Println("anim", i)
+	log.Println("anim", p.uc.Id, i)
 }
 
 func newBridge() (b *Bridge) {
@@ -233,8 +233,8 @@ func newBridge() (b *Bridge) {
 		vs:   &videoSource{imgs: imgs},
 		Imgs: imgs,
 	}
-	b.Println("starting")
-	defer b.Println("started")
+	//b.Println("starting")
+	//defer b.Println("started")
 
 	var err error
 	b.x264Params, err = x264.NewParams()
@@ -243,15 +243,15 @@ func newBridge() (b *Bridge) {
 	}
 	b.x264Params.Preset = x264.PresetMedium
 	b.x264Params.BitRate = 1_000_000 // 1mbps
-	b.Println("x264Params")
+	//b.Println("x264Params")
 
 	codecSelector := mediadevices.NewCodecSelector(
 		mediadevices.WithVideoEncoders(&b.x264Params),
 	)
-	b.Println("codecSelector")
+	//b.Println("codecSelector")
 
 	b.vt = mediadevices.NewVideoTrack(b.vs, codecSelector)
-	b.Println("videoTrack")
+	//b.Println("videoTrack")
 
 	return
 }
@@ -281,7 +281,7 @@ func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) 
 		return
 	}
 	if !b.started {
-		b.Println("starting mediadevices.RTPReadCloser")
+		//b.Println("starting mediadevices.RTPReadCloser")
 
 		b.rr, err = b.vt.NewRTPReader(b.x264Params.RTPCodec().MimeType, rand.Uint32(), 1000)
 		if err != nil {
@@ -290,7 +290,7 @@ func (b *Bridge) ReadRTP() (p *rtp.Packet, _ interceptor.Attributes, err error) 
 		}
 		b.started = true
 
-		b.Println("mediadevices.RTPReadCloser ok")
+		//b.Println("mediadevices.RTPReadCloser ok")
 	}
 	for {
 		pkts, _, e := b.rr.Read()

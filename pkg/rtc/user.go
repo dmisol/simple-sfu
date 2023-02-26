@@ -23,11 +23,10 @@ const (
 )
 
 func NewUser(ctx context.Context, api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64), ij *defs.InitialJson) (u *User) {
-	uc := &defs.UserCtx{}
+	uc := &defs.UserCtx{Id: id}
 	uc.Context, uc.CancelFunc = context.WithCancel(ctx)
 
 	u = &User{
-		Id:           id,
 		UserCtx:      uc,
 		inviteOthers: inviteOthers, // to invite others to subscribe
 		subscribeTo:  subscribeTo,
@@ -49,7 +48,6 @@ func (u *User) Close(msg ...interface{}) {
 
 type User struct {
 	mu sync.Mutex
-	Id int64
 	*defs.UserCtx
 
 	conn *websocket.Conn

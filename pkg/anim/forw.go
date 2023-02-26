@@ -1,7 +1,6 @@
 package anim
 
 import (
-	"log"
 	"sync"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
@@ -93,5 +92,5 @@ func (anim *MediaAnimator) onEncodedVideo() {
 }
 
 func (anim *MediaAnimator) Println(i ...interface{}) {
-	log.Println("MA", i)
+	// log.Println("MA", i)
 }
