@@ -21,6 +21,17 @@ RUN /usr/local/go/bin/go build -v -o main .
 
 
 
+FROM node:16-alpine3.15 as frontend
+WORKDIR /app
+
+COPY frontend ./web
+COPY frontend/src ./web/src
+COPY frontend/public ./web/public
+RUN cd /app/web && yarn install
+RUN cd /app/web && yarn build
+
+
+
 FROM ubuntu:22.04
 WORKDIR /opt/env
 
@@ -35,8 +46,10 @@ ADD static /static
 VOLUME /tmp
 
 COPY --from=build /app/main ./main
-COPY conf.yaml ./conf.yaml
-COPY static ./static
+#COPY conf.yaml ./conf.yaml
+#COPY static ./static
+COPY local.yaml ./conf.yaml
+COPY --from=frontend /app/web/out ./static 
 
 COPY pkg/anim/testdata/init.json ./init.json
 
