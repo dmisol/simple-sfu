@@ -1,6 +1,8 @@
 port: 443
 hosts: [https://flexatar.com, flexatar.com]
 redirect: https://flexatar.com:8443
+folder: /mnt/flexatars
+
 anim:
   fps: 24
   width: 300
