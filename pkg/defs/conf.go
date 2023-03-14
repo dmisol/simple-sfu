@@ -10,7 +10,6 @@ type Conf struct {
 	Port     string   `yaml:"port"`
 	Hosts    []string `yaml:"hosts,omitempty"`
 	Redirect string   `yaml:"redirect,omitempty"`
-	Folder   string   `yaml:"folder"`
 
 	*AnimConf `yaml:"anim,omitempty"`
 }

@@ -11,6 +11,7 @@ require (
 	github.com/pion/rtp v1.7.13
 	github.com/pion/webrtc/v3 v3.1.50
 	github.com/valyala/fasthttp v1.33.0
+	github.com/zaf/resample v0.0.0-20220109201959-aca35f45e6fa
 	golang.org/x/crypto v0.0.0-20221010152910-d6f0a8c073c2
 	gopkg.in/yaml.v3 v3.0.1
 )

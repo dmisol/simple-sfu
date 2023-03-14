@@ -10,6 +10,5 @@ sfu:
 		--network="host" \
 		-e AUDIT_LEVEL=1 \
 		-v /tmp:/tmp \
-		-v `pwd`/flexatars:/mnt/flexatars \
 		sfu &
 

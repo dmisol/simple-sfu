@@ -8,8 +8,7 @@ import (
 	"syscall"
 
 	"github.com/dmisol/simple-sfu/pkg/defs"
-	"github.com/dmisol/simple-sfu/pkg/rtc"
-	"github.com/dmisol/simple-sfu/pkg/store"
+	rtc "github.com/dmisol/simple-sfu/pkg/rtc"
 	"github.com/valyala/fasthttp"
 	"golang.org/x/crypto/acme"
 	"golang.org/x/crypto/acme/autocert"
@@ -25,7 +24,6 @@ func main() {
 	syscall.Umask(0)
 
 	room := rtc.NewRoom(c)
-	store := store.NewFileStore(c)
 	sh := fasthttp.FSHandler("static", 0)
 
 	srv := fasthttp.Server{
@@ -42,8 +40,6 @@ func main() {
 					r.SendFile(path.Join("static", "sfu.html"))
 				case "/cef": // TODO: a page to subscribe all streams, without publishing
 					r.SendFile(path.Join("static", "cef.html"))
-				case "/str":
-					store.Handler(r)
 				case "/":
 					sh(r)
 				default:
