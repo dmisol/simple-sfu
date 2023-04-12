@@ -369,6 +369,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 				u.Println("sub rtcp video rd", err)
 				return
 			}
+			u.Println("sub video rtcp")
 		}
 	}()
 
@@ -389,6 +390,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 			if _, _, rtcpErr := rtpSenderA.Read(rtcpBuf); rtcpErr != nil {
 				return
 			}
+			u.Println("sub audio rtcp")
 		}
 	}()
 	pc.OnICEConnectionStateChange(func(connectionState webrtc.ICEConnectionState) {
