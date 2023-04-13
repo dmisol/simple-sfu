@@ -376,7 +376,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 				return
 			}
 			for _, p := range pts {
-				u.Println(u.Id, "sub video rtcp from", srcId, decodeRtcp(p))
+				u.Println(u.Id, "video", srcId, decodeRtcp(p))
 				if isPli(p) {
 					now := time.Now()
 					if lastPli.Add(100 * time.Millisecond).After(now) {
@@ -408,7 +408,7 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 				return
 			}
 			for _, p := range pts {
-				u.Println("sub audio rtcp from", srcId, decodeRtcp(p))
+				u.Println("audio", srcId, decodeRtcp(p))
 			}
 		}
 	}()
@@ -483,7 +483,7 @@ func decodeRtcp(p rtcp.Packet) string {
 	case *rtcp.ReceiverReport:
 		return "rr"
 	default:
-		return "??"
+		return "some rtcp"
 	}
 }
 
