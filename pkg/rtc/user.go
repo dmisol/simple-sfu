@@ -22,7 +22,7 @@ const (
 	timeout = 2 * time.Hour
 )
 
-func NewUser(ctx context.Context, api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64), ij *defs.InitialJson) (u *User) {
+func NewUser(ctx context.Context, api *webrtc.API, id int64, inviteOthers func(int64), subscribeTo func(p int64, s int64, t *webrtc.TrackLocalStaticRTP), stop func(int64), pli func(p int64, sub int64), ij *defs.InitialJson) (u *User) {
 	uc := &defs.UserCtx{Id: id}
 	uc.Context, uc.CancelFunc = context.WithCancel(ctx)
 
@@ -31,6 +31,7 @@ func NewUser(ctx context.Context, api *webrtc.API, id int64, inviteOthers func(i
 		inviteOthers: inviteOthers, // to invite others to subscribe
 		subscribeTo:  subscribeTo,
 		stop:         stop,
+		pli:          pli,
 		wsChan:       make(chan []byte, 5), // to invite the given user to subscribe publisher[id]
 		api:          api,
 		initJson:     ij,
@@ -55,6 +56,7 @@ type User struct {
 	inviteOthers func(int64)
 	subscribeTo  func(p int64, s int64, t *webrtc.TrackLocalStaticRTP)
 	stop         func(int64)
+	pli          func(p int64, s int64)
 
 	api    *webrtc.API
 	wsChan chan []byte
@@ -110,6 +112,10 @@ func (u *User) Del(id int64) {
 	go func() { // to avoid blocking
 		u.wsChan <- b
 	}()
+}
+
+func (u *User) Pli(from int64) {
+	u.media.Pli(from)
 }
 
 func (u *User) Handler(conn *websocket.Conn) {
@@ -218,7 +224,7 @@ func (u *User) negotiatePublisher(data []byte) {
 	if u.initJson != nil {
 		u.Println("sfu with flexatar, negotiating audio only")
 		u.media = anim.NewAnimator(
-			u.UserCtx,
+			u.UserCtx, u.Id,
 			func() {
 				u.Println("inviting for delayed audio and ftlexatar video")
 				u.inviteOthers(u.Id)
@@ -232,7 +238,7 @@ func (u *User) negotiatePublisher(data []byte) {
 		}
 
 	} else {
-		u.media = media.NewCloner(
+		u.media = media.NewCloner(u.Id,
 			func() {
 				u.inviteOthers(u.Id)
 			},
@@ -363,11 +369,16 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 		return
 	}
 	go func() {
-		rtcpBuf := make([]byte, 1500)
 		for {
-			if _, _, rtcpErr := rtpSenderV.Read(rtcpBuf); rtcpErr != nil {
-				u.Println("sub rtcp video rd", err)
+			pts, _, rtcpErr := rtpSenderV.ReadRTCP()
+			if rtcpErr != nil {
 				return
+			}
+			for _, p := range pts {
+				u.Println("sub video rtcp from", srcId, decodeRtcp(p))
+				if isPli(p) {
+					u.pli(srcId, u.Id)
+				}
 			}
 		}
 	}()
@@ -384,10 +395,13 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 		return
 	}
 	go func() {
-		rtcpBuf := make([]byte, 1500)
 		for {
-			if _, _, rtcpErr := rtpSenderA.Read(rtcpBuf); rtcpErr != nil {
+			pts, _, rtcpErr := rtpSenderA.ReadRTCP()
+			if rtcpErr != nil {
 				return
+			}
+			for _, p := range pts {
+				u.Println("sub audio rtcp from", srcId, decodeRtcp(p))
 			}
 		}
 	}()
@@ -453,4 +467,23 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 
 	go u.subscribeTo(srcId, u.Id, videoTrack)
 	go u.subscribeTo(srcId, u.Id, audioTrack)
+}
+
+func decodeRtcp(p rtcp.Packet) string {
+	switch p.(type) {
+	case *rtcp.PictureLossIndication:
+		return "pli"
+	case *rtcp.ReceiverReport:
+		return "rr"
+	default:
+		return "??"
+	}
+}
+
+func isPli(p rtcp.Packet) bool {
+	switch p.(type) {
+	case *rtcp.PictureLossIndication:
+		return true
+	}
+	return false
 }
