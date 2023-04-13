@@ -369,15 +369,22 @@ func (u *User) negotiateSubscriber(srcId int64, data []byte) {
 		return
 	}
 	go func() {
+		var lastPli time.Time
 		for {
 			pts, _, rtcpErr := rtpSenderV.ReadRTCP()
 			if rtcpErr != nil {
 				return
 			}
 			for _, p := range pts {
-				u.Println("sub video rtcp from", srcId, decodeRtcp(p))
+				u.Println(u.Id, "sub video rtcp from", srcId, decodeRtcp(p))
 				if isPli(p) {
+					now := time.Now()
+					if lastPli.Add(100 * time.Millisecond).After(now) {
+						log.Println(u.Id, "recent pli, ignore", srcId)
+						continue
+					}
 					u.pli(srcId, u.Id)
+					lastPli = now
 				}
 			}
 		}
