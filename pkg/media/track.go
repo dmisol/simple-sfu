@@ -1,6 +1,7 @@
 package media
 
 import (
+	"errors"
 	"log"
 	"sync"
 	"time"
@@ -37,7 +38,7 @@ func (tr *TrackReplicator) RunAudio(r defs.TrackRTPReader, stop func()) {
 	for {
 		p, _, err := r.ReadRTP()
 		if err != nil {
-			log.Println("track", kind, err)
+			tr.Println("track", kind, err)
 			return
 		}
 
@@ -48,7 +49,7 @@ func (tr *TrackReplicator) RunAudio(r defs.TrackRTPReader, stop func()) {
 			toDel := make([]int64, 0)
 			for id, dest := range tr.tracks {
 				if err := dest.WriteRTP(p); err != nil {
-					log.Println("writeRtp() failed", id, kind)
+					tr.Println("writeRtp() failed", id, kind)
 					toDel = append(toDel, id)
 				}
 			}
@@ -75,10 +76,10 @@ func (tr *TrackReplicator) RunVideo(r defs.TrackRTPReader, stop func(), welcome 
 	for {
 		pkt, _, err := r.ReadRTP()
 		if err != nil {
-			log.Println("track", kind, err)
+			tr.Println("track", kind, err)
 			return
 		}
-		log.Println("wire:", pkt.Timestamp, pkt.SequenceNumber, IsH264Keyframe(pkt.Payload), len(pkt.Payload), pkt.Marker)
+		//tr.Println("wire:", pkt.Timestamp, pkt.SequenceNumber, IsH264Keyframe(pkt.Payload), len(pkt.Payload), pkt.Marker)
 		frame = append(frame, pkt)
 		if !keyFrame {
 			keyFrame = IsH264Keyframe(pkt.Payload)
@@ -87,7 +88,7 @@ func (tr *TrackReplicator) RunVideo(r defs.TrackRTPReader, stop func(), welcome 
 			continue
 		}
 
-		tr.print("frame", frame)
+		//tr.printFrame("frame", frame)
 
 		tr.mu.Lock()
 		{
@@ -95,10 +96,11 @@ func (tr *TrackReplicator) RunVideo(r defs.TrackRTPReader, stop func(), welcome 
 				tr.bs = tr.bs[:0]
 				tr.bs = append(tr.bs, frame...)
 
-				tr.print("bootstrap", tr.bs)
+				//tr.printFrame("bootstrap", tr.bs)
 				if justStarted {
 					justStarted = false
 					go welcome()
+					tr.Println("first keyframe")
 				}
 			}
 			tr.ts = pkt.Timestamp
@@ -110,10 +112,10 @@ func (tr *TrackReplicator) RunVideo(r defs.TrackRTPReader, stop func(), welcome 
 					p.SequenceNumber = seq
 					seq++
 
-					log.Println("  ", p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
+					//tr.Println("  ", p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
 
 					if err := dest.WriteRTP(p); err != nil {
-						log.Println("writeRtp() failed", id, kind)
+						tr.Println("writeRtp() failed", id, kind)
 						toDel = append(toDel, id)
 						break // to next track
 					}
@@ -137,66 +139,68 @@ func (tr *TrackReplicator) Pli(id int64) {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 
+	tr.pli(id)
+}
+
+// Pli() > LOCK > pli()
+// Add() > LOCK > pli()
+func (tr *TrackReplicator) pli(id int64) error {
 	tr.ts += safeVideoGap
 
 	s, ok := tr.seqs[id]
 	if !ok {
-		log.Println("PLI from unknown user", id)
-		return
+		tr.Println("PLI from unknown user", id)
+		return errors.New("request from unknown user")
 	}
-	log.Println("ignorimg pli from", id)
+	tr.Println("ignorimg pli from", id)
 
 	dest := tr.tracks[id]
-	//log.Println("responding to pli", id)
 
 	if len(tr.bs) > 0 {
-		log.Println("sending bootstrap to", id)
+		tr.Println("sending bootstrap to", id)
 
 		for _, p := range tr.bs {
 			p.SequenceNumber = s
 			p.Timestamp = tr.ts
 			s++
 
-			log.Println(p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
+			// tr.Println(p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
 			if err := dest.WriteRTP(p); err != nil {
-				log.Println("writeRtp() failed on Pli", id)
+				tr.Println("writeRtp() failed on Pli", id)
 				delete(tr.seqs, id)
 				delete(tr.tracks, id)
-				return
+				return errors.New("destination failed to write")
 			}
 		}
 	}
 
 	tr.seqs[id] = s
+	return nil
 }
+
 func (tr *TrackReplicator) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
 	tr.mu.Lock()
 	defer tr.mu.Unlock()
 
 	s := uint16(time.Now().UnixNano())
-	if len(tr.bs) > 0 {
-		log.Println("sending bootstrap to", id)
-
-		for _, p := range tr.bs {
-			p.SequenceNumber = s
-			s++
-			if err := t.WriteRTP(p); err != nil {
-				log.Println("writeRtp() failed on Add", id)
-				return
-			}
-		}
-	}
-
 	tr.seqs[id] = s
 	tr.tracks[id] = t
+
+	if len(tr.bs) > 0 {
+		tr.pli(id)
+	}
+
 }
 
-func (tr *TrackReplicator) print(str string, f []*rtp.Packet) {
-	log.Println("  ", str)
+func (tr *TrackReplicator) printFrame(str string, f []*rtp.Packet) {
+	tr.Println("  ", str)
 	for _, p := range f {
-		log.Println(p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
+		tr.Println(p.Timestamp, p.SequenceNumber, IsH264Keyframe(p.Payload), len(p.Payload), p.Marker)
 	}
-	log.Println()
+}
+
+func (tr *TrackReplicator) Println(i ...interface{}) {
+	log.Printf("MEDIA %d %v", tr.id, i)
 }
 
 // IsH264Keyframe detects if h264 payload is a keyframe
