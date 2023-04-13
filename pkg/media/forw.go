@@ -7,8 +7,9 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func NewCloner(welcome func(), stop func()) (mr *MediaCloner) {
+func NewCloner(srcId int64, welcome func(), stop func()) (mr *MediaCloner) {
 	mr = &MediaCloner{
+		id:      srcId,
 		welcome: welcome,
 		stop:    stop,
 	}
@@ -16,6 +17,7 @@ func NewCloner(welcome func(), stop func()) (mr *MediaCloner) {
 }
 
 type MediaCloner struct {
+	id   int64
 	mu   sync.Mutex
 	a, v *TrackReplicator //[kind]
 
@@ -24,19 +26,17 @@ type MediaCloner struct {
 }
 
 func (r *MediaCloner) Replicate(t *webrtc.TrackRemote, receiver *webrtc.RTPReceiver) {
-	tr := NewTrackReplicator()
+	tr := NewTrackReplicator(r.id)
 
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
 	if t.Kind() == webrtc.RTPCodecTypeAudio {
 		r.a = tr
+		go tr.RunAudio(t, r.stop)
 	} else {
 		r.v = tr
-	}
-	go tr.Run(t, r.stop)
-	if r.a != nil && r.v != nil {
-		go r.welcome() // both src tracks ready, ivite to add localTracks
+		go tr.RunVideo(t, r.stop, r.welcome)
 	}
 }
 
@@ -56,4 +56,7 @@ func (r *MediaCloner) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
 		}
 	}
 	log.Println("can't add track of given kind", t, t.Kind().String())
+}
+func (r *MediaCloner) Pli(id int64) {
+	r.v.Pli(id)
 }

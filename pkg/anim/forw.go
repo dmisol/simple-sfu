@@ -8,7 +8,7 @@ import (
 	"github.com/pion/webrtc/v3"
 )
 
-func NewAnimator(uc *defs.UserCtx, welcome func(), stop func(), id int64, ij *defs.InitialJson) (anim *MediaAnimator) {
+func NewAnimator(uc *defs.UserCtx, srcId int64, welcome func(), stop func(), id int64, ij *defs.InitialJson) (anim *MediaAnimator) {
 	anim = &MediaAnimator{
 		welcome: welcome,
 		stop:    stop,
@@ -29,6 +29,7 @@ func NewAnimator(uc *defs.UserCtx, welcome func(), stop func(), id int64, ij *de
 }
 
 type MediaAnimator struct {
+	id   int64
 	mu   sync.Mutex
 	a, v *media.TrackReplicator //[kind]
 
@@ -71,24 +72,27 @@ func (anim *MediaAnimator) Add(id int64, t *webrtc.TrackLocalStaticRTP) {
 	anim.Println("can't add track of given kind", t, t.Kind().String())
 }
 
+func (anim *MediaAnimator) Pli(id int64) {
+	anim.v.Pli(id)
+}
+
 func (anim *MediaAnimator) onEncodedVideo() {
 	anim.Println("encoded video appeared")
 
 	anim.mu.Lock()
 	defer anim.mu.Unlock()
 
-	tr := media.NewTrackReplicator()
-	go tr.Run(anim.ap, anim.stop)
+	tr := media.NewTrackReplicator(anim.id)
+	go tr.RunAudio(anim.ap, anim.stop)
 	anim.a = tr
 
-	tr = media.NewTrackReplicator()
-	go tr.Run(anim.ae, anim.stop)
+	tr = media.NewTrackReplicator(anim.id)
+	go tr.RunVideo(anim.ae, anim.stop, anim.welcome)
 	anim.v = tr
 
 	anim.ap.Play()
 	anim.Println("replicators started")
 
-	anim.welcome()
 }
 
 func (anim *MediaAnimator) Println(i ...interface{}) {

@@ -17,6 +17,7 @@ const (
 type Media interface {
 	Replicate(*webrtc.TrackRemote, *webrtc.RTPReceiver) // track to replicate
 	Add(int64, *webrtc.TrackLocalStaticRTP)             // user to receive
+	Pli(int64)
 }
 
 type TrackRTPReader interface {

@@ -132,6 +132,17 @@ func (x *Room) stop(uid int64) {
 	delete(x.Users, uid)
 }
 
+func (x *Room) pli(p int64, s int64) {
+	x.mu.Lock()
+	defer x.mu.Unlock()
+
+	u, ok := x.Users[p]
+	if !ok {
+		log.Println("pli to unknown publisher", p)
+		return
+	}
+	go u.Pli(s)
+}
 func (x *Room) Handler(r *fasthttp.RequestCtx) {
 	uid := atomic.AddInt64(&x.lastUid, 1)
 
@@ -167,10 +178,10 @@ func (x *Room) Handler(r *fasthttp.RequestCtx) {
 			}
 			os.MkdirAll(ij.Dir, 0777)
 		*/
-		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, ij)
+		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, x.pli, ij)
 	} else {
 		log.Println("regular webrtc", uid)
-		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, nil)
+		user = NewUser(context.Background(), x.api, uid, x.invite, x.subscribe, x.stop, x.pli, nil)
 	}
 
 	err := x.upgrader.Upgrade(r, user.Handler)
